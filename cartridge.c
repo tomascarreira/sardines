@@ -25,3 +25,31 @@ uint8_t* read_rom(char* file_name) {
 
 	return rom;
 }
+
+nes_header parse_header(uint8_t* rom) {
+	
+	if (rom[0] != 'N' || rom[1] != 'E' || rom[2] != 'S' || rom[3] != 0x1A) {
+		printf("File is not a nes file\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (((rom[7] >> 2)  & 0x3) == 0x2) {
+		printf("File is a NES 2.0 file\n");
+	}
+
+	nes_header header = { 0 };
+	
+	header.mapper = (rom[6] >> 4) || (rom[7] & 0xf0);
+	header.prgrom = rom[4];
+	header.chrrom = rom[5];
+	header.prgram = rom[8];
+	header.mirroring = rom[6] & 0x1;
+	header.ignore_mirror = (rom[6] >> 3) & 0x1;
+	header.battery = (rom[6] >> 1) & 0x1;
+	header.trainer = (rom[6] >> 2) & 0x1;
+	header.vs_unisystem = rom[7] & 0x1;
+	header.play_choice_10 = (rom[7] >> 1) & 0x1;
+	header.tv_system = rom[9] & 0x1;
+
+	return header;
+}
