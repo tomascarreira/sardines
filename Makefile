@@ -6,7 +6,7 @@ BIN=sardines
 all:$(BIN)
 
 sardines:$(OBJS)
-	$(CC) $(CFLAGS) -o sardines
+	$(CC) $(CFLAGS) $(OBJS) -o sardines
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
