@@ -6,4 +6,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "cartridge.h"
+
 #endif

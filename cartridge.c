@@ -39,7 +39,7 @@ nes_header parse_header(uint8_t* rom) {
 
 	nes_header header = { 0 };
 	
-	header.mapper = (rom[6] >> 4) || (rom[7] & 0xf0);
+	header.number = (rom[6] >> 4) || (rom[7] & 0xf0);
 	header.prgrom = rom[4];
 	header.chrrom = rom[5];
 	header.prgram = rom[8];
@@ -52,4 +52,23 @@ nes_header parse_header(uint8_t* rom) {
 	header.tv_system = rom[9] & 0x1;
 
 	return header;
+}
+
+mapper init_mapper(uint8_t* rom, nes_header header) {
+
+	mapper mapper = { 0 };
+
+	switch (header.number) {
+
+		case 0:
+			mapper.header = header;
+			mapper.rom = rom + HEADER_SIZE;
+			break;
+
+		default:
+			printf("Mapper number %03d not supported.\n", header.number);
+			exit(EXIT_FAILURE);
+	}
+
+	return mapper;
 }
