@@ -2,6 +2,7 @@
 #define CARTRIDGE_H
 
 #define HEADER_SIZE 16
+#define TRAINER_SIZE 512
 
 typedef struct nes_header nes_header;
 struct nes_header {

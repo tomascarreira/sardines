@@ -58,11 +58,17 @@ mapper init_mapper(uint8_t* rom, nes_header header) {
 
 	mapper mapper = { 0 };
 
+	mapper.header = header;
+	if (mapper.header.trainer) {
+		mapper.rom = rom + HEADER_SIZE + TRAINER_SIZE;
+		printf("Ignoring trainer.\n");
+	} else {
+		mapper.rom = rom + HEADER_SIZE;
+	}
+
 	switch (header.number) {
 
 		case 0:
-			mapper.header = header;
-			mapper.rom = rom + HEADER_SIZE;
 			break;
 
 		default:
