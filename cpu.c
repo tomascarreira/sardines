@@ -17,3 +17,30 @@ cpu* init_cpu(bus* bus) {
 
 	return cpu;
 }
+
+uint8_t cpu_read(bus* bus,  uint16_t address) {
+
+	if (address <= 0x1fff) {
+		return bus->ram[address & 0x7ff];
+
+	} else if (address >= 0x4020 && address <= 0xffff) {
+		return mapper_read(bus, address);
+	
+	} else {
+		printf("Read bus address %02x not implemented.\n", address);
+		exit(EXIT_FAILURE);
+	}
+}
+
+void cpu_write(bus* bus, uint8_t value, uint16_t address) {
+	
+	if (address <= 0x1ff) {
+		bus->ram[address & 0xff] = value;
+
+	} else if (address >= 0x4020 && address <= 0xffff) {
+		mapper_write(bus, value, address);
+
+	} else {
+		printf("Write bus address %02x not implemented.\n", address);
+	}
+}

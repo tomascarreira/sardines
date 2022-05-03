@@ -105,3 +105,67 @@ uint16_t get_reset_vector(bus* bus) {
 
 	return reset_vector;
 }
+
+uint8_t mapper_read(bus* bus, uint16_t address) {
+
+	uint8_t value;
+	
+	switch (bus->mapper.header.number) {
+
+		case 0:
+			if (address >= 0x6000 && address <= 0x7fff) {
+				printf("Read PRG RAM at %02x not implemented.\n", address);
+				exit(EXIT_FAILURE);
+
+			} else if (address >= 0x8000 && address <= 0xbfff) {
+				value = bus->mapper.rom[address - 0x8000];
+
+			} else if (address >= 0xc000 && address <= 0xffff) {
+				if (bus->mapper.header.prgrom == 1) {
+					value = bus->mapper.rom[address - 0x8000];
+				} else if (bus->mapper.header.prgrom == 2) {
+					value = bus->mapper.rom[address - 0xc000 + 0x4000];
+				} else {
+					printf("Bad mapper!\n");
+					exit(EXIT_FAILURE);
+				}
+
+			} else {
+				printf("Read mapper at %02x not implemented.\n", address);
+				exit(EXIT_FAILURE);
+			}
+
+			break;
+
+		default:
+			printf("Mapper number %03d not supported.\n", bus->mapper.header.number);
+			exit(EXIT_FAILURE);
+	}
+
+	return value;
+}
+
+void mapper_write(bus* bus, uint8_t value, uint16_t address) {
+
+	switch (bus->mapper.header.number) {
+
+		case 0:
+			if (address >= 0x6000 && address <= 0x7fff) {
+				printf("Write PRG RAM at %02x not implemented.\n", address);
+				exit(EXIT_FAILURE);
+
+			} else if (address >= 0x8000 && address <= 0xffff) {
+				printf("Write to PRG ROM at %02x is not legal (i think).\n", address);
+				exit(EXIT_FAILURE);
+
+			} else {
+				printf("Write mapper at %02x not implemented.\n", address);
+			}
+
+			break;
+
+		default:
+			printf("Mapper number %03d not supported.\n", bus->mapper.header.number);
+			exit(EXIT_FAILURE);
+	}	
+}
