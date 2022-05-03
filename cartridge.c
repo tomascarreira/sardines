@@ -160,6 +160,7 @@ void mapper_write(bus* bus, uint8_t value, uint16_t address) {
 
 			} else {
 				printf("Write mapper at %02x not implemented.\n", address);
+				exit(EXIT_FAILURE);
 			}
 
 			break;

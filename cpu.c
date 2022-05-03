@@ -56,5 +56,6 @@ void cpu_write(bus* bus, uint8_t value, uint16_t address) {
 
 	} else {
 		printf("Write bus address %02x not implemented.\n", address);
+		exit(EXIT_FAILURE);
 	}
 }
