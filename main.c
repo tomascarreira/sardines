@@ -21,3 +21,6 @@ int main(int argc, char* argv[argc+1]) {
 
 	return EXIT_SUCCESS;
 }
+
+// Known errors:
+//		+1 cycle on addressing modes is happening in instructions that shoudnt happend

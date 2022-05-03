@@ -26,4 +26,17 @@ void clock_cpu(cpu* cpu, bus* bus);
 uint8_t cpu_read(bus* bus, uint16_t address);
 void cpu_write(bus* bus, uint8_t value, uint16_t address);
 
+size_t imp(bus* bus, cpu* cpu, uint16_t* address);
+size_t imm(bus* bus, cpu* cpu, uint16_t* address);
+size_t zp(bus* bus, cpu* cpu, uint16_t* address);
+size_t zpx(bus* bus, cpu* cpu, uint16_t* address);
+size_t zpy(bus* bus, cpu* cpu, uint16_t* address);
+size_t abl(bus* bus, cpu* cpu, uint16_t* address);
+size_t abx(bus* bus, cpu* cpu, uint16_t* address);
+size_t aby(bus* bus, cpu* cpu, uint16_t* address);
+size_t rel(bus* bus, cpu* cpu, uint16_t* address);
+size_t ind(bus* bus, cpu* cpu, uint16_t* address);
+size_t izx(bus* bus, cpu* cpu, uint16_t* address);
+size_t izy(bus* bus, cpu* cpu, uint16_t* address);
+
 #endif
