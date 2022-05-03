@@ -22,6 +22,7 @@ struct cpu {
 };
 
 cpu* init_cpu(bus* bus);
+void clock_cpu(cpu* cpu, bus* bus);
 uint8_t cpu_read(bus* bus, uint16_t address);
 void cpu_write(bus* bus, uint8_t value, uint16_t address);
 

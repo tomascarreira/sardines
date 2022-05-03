@@ -18,6 +18,20 @@ cpu* init_cpu(bus* bus) {
 	return cpu;
 }
 
+void clock_cpu(cpu* cpu, bus* bus) {
+	
+	static size_t instr_clocks;
+
+	if (instr_clocks) {
+		--instr_clocks;
+		return;
+	}
+	
+	uint8_t opcode = cpu_read(bus, cpu->pc);
+	++cpu->pc;
+
+}
+
 uint8_t cpu_read(bus* bus,  uint16_t address) {
 
 	if (address <= 0x1fff) {

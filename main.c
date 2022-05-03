@@ -12,5 +12,12 @@ int main(int argc, char* argv[argc+1]) {
 	bus* bus = init_bus(mapper);
 	cpu* cpu = init_cpu(bus);
 
+	size_t clocks = 0;
+		
+	for (size_t i = 0; i < 65; ++i) {
+		clock_cpu(cpu, bus);
+		++clocks;
+	}
+
 	return EXIT_SUCCESS;
 }
