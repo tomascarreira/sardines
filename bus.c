@@ -10,7 +10,7 @@ bus* init_bus(mapper mapper) {
 	}
 
 	bus->ram = calloc(1, 0x800);
-	if (!ram) {
+	if (!bus->ram) {
 		perror("ram calloc failed.\n");
 		exit(EXIT_FAILURE);
 	}
