@@ -101,6 +101,9 @@ uint8_t cpu_read(bus* bus,  uint16_t address) {
 	if (address <= 0x1fff) {
 		return bus->ram[address & 0x7ff];
 
+	} else if (address >= 0x2000 && address <= 0x3fff) {
+		return 0;
+
 	} else if (address >= 0x4020 && address <= 0xffff) {
 		return mapper_read(bus, address);
 	
@@ -114,6 +117,9 @@ void cpu_write(bus* bus, uint8_t value, uint16_t address) {
 	
 	if (address <= 0x7ff) {
 		bus->ram[address & 0x7ff] = value;
+
+	} else if (address >= 0x2000 && address <= 0x3fff) {
+
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
 		mapper_write(bus, value, address);
