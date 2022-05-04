@@ -104,6 +104,9 @@ uint8_t cpu_read(nes_bus* bus,  uint16_t address) {
 	} else if (address >= 0x2000 && address <= 0x3fff) {
 		return 0;
 
+	} else if (address >= 0x4000 && address <= 0x401f){
+		return 0;
+
 	} else if (address >= 0x4020 && address <= 0xffff) {
 		return mapper_read(bus, address);
 	
@@ -119,6 +122,9 @@ void cpu_write(nes_bus* bus, uint8_t value, uint16_t address) {
 		bus->ram[address & 0x7ff] = value;
 
 	} else if (address >= 0x2000 && address <= 0x3fff) {
+
+
+	} else if (address >= 0x4000 && address <= 0x401f){
 
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
