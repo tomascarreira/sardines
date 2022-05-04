@@ -1,6 +1,7 @@
 #include "common.h"
 #include "bus.h"
 #include "cartridge.h"
+#include "cpu.h"
 
 uint8_t* read_rom(char* file_name) {
 
@@ -82,28 +83,14 @@ mapper init_mapper(uint8_t* rom, nes_header header) {
 
 uint16_t get_reset_vector(bus* bus) {
 
-	uint16_t reset_vector;
+	uint8_t lo = cpu_read(bus, 0xfffc);
+	uint8_t hi = cpu_read(bus, 0xfffd);
 
-	switch (bus->mapper.header.number) {
-		
-		case 0:
+	return (hi << 8) | lo;
+}
 
-			if (bus->mapper.header.prgrom == 1) {
-				reset_vector = (bus->mapper.rom[0x3ffd] << 8) | bus->mapper.rom[0x3ffc];
-			} else if (bus->mapper.header.prgrom == 2) {
-				reset_vector = (bus->mapper.rom[0x7ffd] << 8) | bus->mapper.rom[0x7ffc];
-			} else {
-				printf("Bad mapper!\n");
-				exit(EXIT_FAILURE);
-			}
-			break;
-		
-		default:
-			printf("Mapper number %03d not supported.\n", bus->mapper.header.number);
-			exit(EXIT_FAILURE);
-	}	
 
-	return reset_vector;
+	return (hi << 8) | lo;
 }
 
 uint8_t mapper_read(bus* bus, uint16_t address) {
