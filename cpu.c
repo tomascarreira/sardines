@@ -112,7 +112,7 @@ uint8_t cpu_read(bus* bus,  uint16_t address) {
 
 void cpu_write(bus* bus, uint8_t value, uint16_t address) {
 	
-	if (address <= 0x1ff) {
+	if (address <= 0x7ff) {
 		bus->ram[address & 0x7ff] = value;
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
