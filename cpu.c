@@ -87,11 +87,13 @@ void clock_cpu(cpu* cpu, bus* bus) {
 	uint8_t opcode = cpu_read(bus, cpu->pc);
 	++cpu->pc;
 
-	uint16_t address = 0x6969;
+	uint16_t address;
 
 	instr_clocks = opcode_cycles_table[opcode];
 	instr_clocks += addressing_mode_table[opcode](bus, cpu, &address);
 	instr_clocks += opcode_table[opcode](bus, cpu, address);
+	
+	--instr_clocks;
 }
 
 uint8_t cpu_read(bus* bus,  uint16_t address) {
