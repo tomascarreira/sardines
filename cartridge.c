@@ -56,9 +56,9 @@ nes_header parse_header(uint8_t* rom) {
 	return header;
 }
 
-mapper init_mapper(uint8_t* rom, nes_header header) {
+nes_mapper init_mapper(uint8_t* rom, nes_header header) {
 
-	mapper mapper = { 0 };
+	nes_mapper mapper = { 0 };
 
 	mapper.header = header;
 	if (mapper.header.trainer) {
@@ -72,7 +72,11 @@ mapper init_mapper(uint8_t* rom, nes_header header) {
 
 		case 0:
 			;
-			uint8_t* prgram = calloc(1, 0x2000);
+			uint8_t* prgram = calloc(0x2000, 1);
+			if (!prgram) {
+				perror("prgram calloc failed.\n");
+				exit(EXIT_FAILURE);
+			}
 			mapper.prgram = prgram;
 			break;
 
@@ -84,7 +88,7 @@ mapper init_mapper(uint8_t* rom, nes_header header) {
 	return mapper;
 }
 
-uint16_t get_reset_vector(bus* bus) {
+uint16_t get_reset_vector(nes_bus* bus) {
 
 	uint8_t lo = cpu_read(bus, 0xfffc);
 	uint8_t hi = cpu_read(bus, 0xfffd);
@@ -92,7 +96,7 @@ uint16_t get_reset_vector(bus* bus) {
 	return (hi << 8) | lo;
 }
 
-uint16_t get_irq_vector(bus* bus) {
+uint16_t get_irq_vector(nes_bus* bus) {
 
 	uint8_t lo = cpu_read(bus, 0xfffe);
 	uint8_t hi = cpu_read(bus, 0xffff);
@@ -100,7 +104,7 @@ uint16_t get_irq_vector(bus* bus) {
 	return (hi << 8) | lo;
 }
 
-uint8_t mapper_read(bus* bus, uint16_t address) {
+uint8_t mapper_read(nes_bus* bus, uint16_t address) {
 
 	uint8_t value;
 	
@@ -138,7 +142,7 @@ uint8_t mapper_read(bus* bus, uint16_t address) {
 	return value;
 }
 
-void mapper_write(bus* bus, uint8_t value, uint16_t address) {
+void mapper_write(nes_bus* bus, uint8_t value, uint16_t address) {
 
 	switch (bus->mapper.header.number) {
 

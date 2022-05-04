@@ -1,20 +1,21 @@
 #include "common.h"
 #include "bus.h"
 
-bus* init_bus(mapper mapper) {
+nes_bus* init_bus(nes_mapper mapper) {
 	
-	bus* bus = calloc(1, sizeof bus);
+	nes_bus* bus = calloc(1, sizeof (nes_bus));
 	if (!bus) {
 		perror("bus calloc failed.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	bus->ram = calloc(1, 0x800);
-	if (!bus->ram) {
+	uint8_t* ram = calloc(0x800, 1);
+	if (!ram) {
 		perror("ram calloc failed.\n");
 		exit(EXIT_FAILURE);
 	}
 
+	bus->ram = ram;
 	bus->mapper = mapper;
 
 	return bus;

@@ -7,17 +7,23 @@ int main(int argc, char* argv[argc+1]) {
 
 	uint8_t* rom = read_rom(argv[1]);
 	nes_header header = parse_header(rom);
-	mapper mapper = init_mapper(rom, header);
+	nes_mapper mapper = init_mapper(rom, header);
 
-	bus* bus = init_bus(mapper);
-	cpu* cpu = init_cpu(bus);
+	nes_bus* bus = init_bus(mapper);
+	nes_cpu* cpu = init_cpu(bus);
 
-	size_t clocks = 0;
+	size_t clocks = 7;
 		
 	for (size_t i = 0; i < 65; ++i) {
 		clock_cpu(cpu, bus);
 		++clocks;
 	}
+
+	free(rom);
+	free(bus->mapper.prgram);
+	free(bus->ram);
+	free(bus);
+	free(cpu);
 
 	return EXIT_SUCCESS;
 }

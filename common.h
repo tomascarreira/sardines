@@ -21,18 +21,18 @@ struct nes_header {
 	uint8_t tv_system; // 0 to NTSC, 1to PAL
 };
 
-typedef struct mapper mapper;
-struct mapper {
+typedef struct nes_mapper nes_mapper;
+struct nes_mapper {
 	nes_header header;
 	uint8_t* rom;
 	uint8_t* prgram;
 	void* registers;
 };
 
-typedef struct bus bus;
-struct bus {
+typedef struct nes_bus nes_bus;
+struct nes_bus {
 	uint8_t* ram;
-	mapper mapper;
+	nes_mapper mapper;
 };
 
 

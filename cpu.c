@@ -21,7 +21,7 @@ const size_t opcode_cycles_table[256] = {
 		2, 5, 0, 4, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7
 };
 
-const size_t (*addressing_mode_table[256])(bus*, cpu*, uint16_t*) = {
+const size_t (*addressing_mode_table[256])(nes_bus*, nes_cpu*, uint16_t*) = {
 		imp, izx, imp, izx,  zp,  zp,  zp,  zp, imp, imm, imp, imm, abl, abl, abl, abl,
 		rel, izy, imp, izy, zpx, zpx, zpx, zpx, imp, aby, imp, aby, abx, abx, abx, abx,
 		abl, izx, imp, izx,  zp,  zp,  zp,  zp, imp, imm, imp, imm, abl, abl, abl, abl,
@@ -40,7 +40,7 @@ const size_t (*addressing_mode_table[256])(bus*, cpu*, uint16_t*) = {
 		rel, izy, imp, izy, zpx, zpx, zpx, zpx, imp, aby, imp, aby, abx, abx, abx, abx
 };
 
-const size_t (*opcode_table[256])(bus*, cpu*, uint16_t) = {
+const size_t (*opcode_table[256])(nes_bus*, nes_cpu*, uint16_t) = {
 		brk, ora, kil, slo, nop, ora, asl, slo, php, ora, asl_a, anc, nop, ora, asl, slo,
 		bpl, ora, kil, slo, nop, ora, asl, slo, clc, ora, nop, slo, nop, ora, asl, slo,
 		jsr, and, kil, rla, bit, and, rol, rla, plp, and, rol_a, anc, bit, and, rol, rla,
@@ -59,9 +59,9 @@ const size_t (*opcode_table[256])(bus*, cpu*, uint16_t) = {
 		beq, sbc, kil, isc, nop, sbc, inc, isc, sed, sbc, nop, isc, nop, sbc, inc, isc
 };
 
-cpu* init_cpu(bus* bus) {
+nes_cpu* init_cpu(nes_bus* bus) {
 	
-	cpu* cpu = calloc(1, sizeof cpu);
+	nes_cpu* cpu = calloc(1, sizeof cpu);
 	if (!cpu) {
 		perror("cpu calloc failed.\n");
 		exit(EXIT_FAILURE);
@@ -75,7 +75,7 @@ cpu* init_cpu(bus* bus) {
 	return cpu;
 }
 
-void clock_cpu(cpu* cpu, bus* bus) {
+void clock_cpu(nes_cpu* cpu, nes_bus* bus) {
 	
 	static size_t instr_clocks;
 
@@ -96,7 +96,7 @@ void clock_cpu(cpu* cpu, bus* bus) {
 	--instr_clocks;
 }
 
-uint8_t cpu_read(bus* bus,  uint16_t address) {
+uint8_t cpu_read(nes_bus* bus,  uint16_t address) {
 
 	if (address <= 0x1fff) {
 		return bus->ram[address & 0x7ff];
@@ -113,7 +113,7 @@ uint8_t cpu_read(bus* bus,  uint16_t address) {
 	}
 }
 
-void cpu_write(bus* bus, uint8_t value, uint16_t address) {
+void cpu_write(nes_bus* bus, uint8_t value, uint16_t address) {
 	
 	if (address <= 0x7ff) {
 		bus->ram[address & 0x7ff] = value;
@@ -130,12 +130,12 @@ void cpu_write(bus* bus, uint8_t value, uint16_t address) {
 	}
 }
 
-size_t imp(bus* bus, cpu* cpu, uint16_t* address) {
+size_t imp(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	
 	return 0;
 }
 
-size_t imm(bus* bus, cpu* cpu, uint16_t* address) {
+size_t imm(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	
 	*address = cpu->pc;
 	++cpu->pc;
@@ -143,7 +143,7 @@ size_t imm(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t zp(bus* bus, cpu* cpu, uint16_t* address) {
+size_t zp(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	
 	*address = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -151,7 +151,7 @@ size_t zp(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t zpx(bus* bus, cpu* cpu, uint16_t* address) {
+size_t zpx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	*address = (cpu_read(bus, cpu->pc) + cpu->x) & 0xff;
 	++cpu->pc;
@@ -159,7 +159,7 @@ size_t zpx(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t zpy(bus* bus, cpu* cpu, uint16_t* address) {
+size_t zpy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	*address = (cpu_read(bus, cpu->pc) + cpu->y) & 0xff;
 	++cpu->pc;
@@ -167,7 +167,7 @@ size_t zpy(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t abl(bus* bus, cpu* cpu, uint16_t* address) {
+size_t abl(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -180,7 +180,7 @@ size_t abl(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t abx(bus* bus, cpu* cpu, uint16_t* address) {
+size_t abx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -197,7 +197,7 @@ size_t abx(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t aby(bus* bus, cpu* cpu, uint16_t* address) {
+size_t aby(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -214,7 +214,7 @@ size_t aby(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t rel(bus* bus, cpu* cpu, uint16_t* address) {
+size_t rel(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	
 	*address = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -222,7 +222,7 @@ size_t rel(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t ind(bus* bus, cpu* cpu, uint16_t* address) {
+size_t ind(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -242,7 +242,7 @@ size_t ind(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t izx(bus* bus, cpu* cpu, uint16_t* address) {
+size_t izx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	
 	uint8_t zp_ptr = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -255,7 +255,7 @@ size_t izx(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t izy(bus* bus, cpu* cpu, uint16_t* address) {
+size_t izy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	
 	uint8_t zp_ptr = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -272,7 +272,7 @@ size_t izy(bus* bus, cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t adc(bus* bus, cpu* cpu, uint16_t address) {
+size_t adc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 	uint16_t result = operand + cpu->a + cpu->p.c;
@@ -285,7 +285,7 @@ size_t adc(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t and(bus* bus, cpu* cpu, uint16_t address) {
+size_t and(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a &= cpu_read(bus, address);
 
@@ -295,7 +295,7 @@ size_t and(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t asl(bus* bus, cpu* cpu, uint16_t address) {
+size_t asl(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 	uint8_t result = operand << 1;
@@ -308,7 +308,7 @@ size_t asl(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t asl_a(bus* bus, cpu* cpu, uint16_t address) {
+size_t asl_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t operand = cpu->a;
 
@@ -320,7 +320,7 @@ size_t asl_a(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t bcc(bus* bus, cpu* cpu, uint16_t address) {
+size_t bcc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -335,7 +335,7 @@ size_t bcc(bus* bus, cpu* cpu, uint16_t address) {
 	return 0; 
 }
 
-size_t bcs(bus* bus, cpu* cpu, uint16_t address) {
+size_t bcs(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -350,7 +350,7 @@ size_t bcs(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t beq(bus* bus, cpu* cpu, uint16_t address) {
+size_t beq(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -365,7 +365,7 @@ size_t beq(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t bit(bus* bus, cpu* cpu, uint16_t address) {
+size_t bit(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t tmp = cpu_read(bus, address) & cpu->a;
 
@@ -375,7 +375,7 @@ size_t bit(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t bmi(bus* bus, cpu* cpu, uint16_t address) {
+size_t bmi(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -389,7 +389,7 @@ size_t bmi(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t bne(bus* bus, cpu* cpu, uint16_t address) {
+size_t bne(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -403,7 +403,7 @@ size_t bne(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t bpl(bus* bus, cpu* cpu, uint16_t address) {
+size_t bpl(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -417,7 +417,7 @@ size_t bpl(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t brk(bus* bus, cpu* cpu, uint16_t address) {
+size_t brk(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	++cpu->pc;
 	
@@ -431,7 +431,7 @@ size_t brk(bus* bus, cpu* cpu, uint16_t address) {
 	
 	return 0;
 }
-size_t bvc(bus* bus, cpu* cpu, uint16_t address) {
+size_t bvc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -446,7 +446,7 @@ size_t bvc(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t bvs(bus* bus, cpu* cpu, uint16_t address) {
+size_t bvs(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	int8_t offset = (int8_t) address;
 	uint16_t old_pc = cpu->pc;
@@ -460,31 +460,31 @@ size_t bvs(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t clc(bus* bus, cpu* cpu, uint16_t address) { 
+size_t clc(nes_bus* bus, nes_cpu* cpu, uint16_t address) { 
 
 	cpu->p.c = 0;
 
 	return 0;
 }
-size_t cld(bus* bus, cpu* cpu, uint16_t address) {
+size_t cld(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	cpu->p.d = 0;
 
 	return 0;
 }
-size_t cli(bus* bus, cpu* cpu, uint16_t address) {
+size_t cli(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	cpu->p.i = 0;
 
 	return 0;
 }
-size_t clv(bus* bus, cpu* cpu, uint16_t address) {
+size_t clv(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	cpu->p.v = 0;
 
 	return 0;
 }
-size_t cmp(bus* bus, cpu* cpu, uint16_t address) {
+size_t cmp(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t operand = cpu_read(bus, address);
 
@@ -494,7 +494,7 @@ size_t cmp(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t cpx(bus* bus, cpu* cpu, uint16_t address) {
+size_t cpx(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t operand = cpu_read(bus, address);
 
@@ -505,7 +505,7 @@ size_t cpx(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t cpy(bus* bus, cpu* cpu, uint16_t address) {
+size_t cpy(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 
@@ -515,7 +515,7 @@ size_t cpy(bus* bus, cpu* cpu, uint16_t address) {
 	
 	return 0;
 }
-size_t dec(bus* bus, cpu* cpu, uint16_t address) {
+size_t dec(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 	--operand;
@@ -527,7 +527,7 @@ size_t dec(bus* bus, cpu* cpu, uint16_t address) {
 	
 	return 0;
 }
-size_t dex(bus* bus, cpu* cpu, uint16_t address) {
+size_t dex(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	--cpu->x;
 
@@ -536,7 +536,7 @@ size_t dex(bus* bus, cpu* cpu, uint16_t address) {
 	
 	return 0;
 }
-size_t dey(bus* bus, cpu* cpu, uint16_t address) {
+size_t dey(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	--cpu->y;
 
@@ -545,7 +545,7 @@ size_t dey(bus* bus, cpu* cpu, uint16_t address) {
 	
 	return 0;
 }
-size_t eor(bus* bus, cpu* cpu, uint16_t address) {
+size_t eor(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a ^= cpu_read(bus, address);
 
@@ -555,7 +555,7 @@ size_t eor(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t inc(bus* bus, cpu* cpu, uint16_t address) {
+size_t inc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t operand = cpu_read(bus, address);
 	++operand;
@@ -569,7 +569,7 @@ size_t inc(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t inx(bus* bus, cpu* cpu, uint16_t address) {
+size_t inx(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	++cpu->x;
 
@@ -579,7 +579,7 @@ size_t inx(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t iny(bus* bus, cpu* cpu, uint16_t address) {
+size_t iny(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	++cpu->y;
 
@@ -589,14 +589,14 @@ size_t iny(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t jmp(bus* bus, cpu* cpu, uint16_t address) {
+size_t jmp(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->pc = address;
 	
 	return 0;
 }
 
-size_t jsr(bus* bus, cpu* cpu, uint16_t address) {
+size_t jsr(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	push(bus, cpu, (cpu->pc -1) >> 8);
 	push(bus, cpu, cpu->pc - 1);
@@ -606,7 +606,7 @@ size_t jsr(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t lda(bus* bus, cpu* cpu, uint16_t address) {
+size_t lda(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a = cpu_read(bus, address);
 
@@ -616,7 +616,7 @@ size_t lda(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t ldx(bus* bus, cpu* cpu, uint16_t address) {
+size_t ldx(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->x = cpu_read(bus, address);
 
@@ -626,7 +626,7 @@ size_t ldx(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t ldy(bus* bus, cpu* cpu, uint16_t address) {
+size_t ldy(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->y = cpu_read(bus, address);
 
@@ -636,7 +636,7 @@ size_t ldy(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t lsr(bus* bus, cpu* cpu, uint16_t address) {
+size_t lsr(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 	uint8_t result = operand >> 1;
@@ -650,7 +650,7 @@ size_t lsr(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t lsr_a(bus* bus, cpu* cpu, uint16_t address) {
+size_t lsr_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 
@@ -663,12 +663,12 @@ size_t lsr_a(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t nop(bus* bus, cpu* cpu, uint16_t address) {
+size_t nop(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	return 0;
 }
 
-size_t ora(bus* bus, cpu* cpu, uint16_t address) {
+size_t ora(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a |= cpu_read(bus, address);
 
@@ -678,14 +678,14 @@ size_t ora(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t pha(bus* bus, cpu* cpu, uint16_t address) {
+size_t pha(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	push(bus, cpu, cpu->a);
 	
 	return 0;
 }
 
-size_t php(bus* bus, cpu* cpu, uint16_t address) {
+size_t php(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	cpu->p.b = 3;	
 	push(bus, cpu, colapse_status(cpu));
@@ -693,7 +693,7 @@ size_t php(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t pla(bus* bus, cpu* cpu, uint16_t address) {
+size_t pla(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a = pop(bus, cpu);
 
@@ -703,7 +703,7 @@ size_t pla(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t plp(bus* bus, cpu* cpu, uint16_t address) {
+size_t plp(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t status = pop(bus, cpu);
 	cpu->p.c = status;
@@ -716,7 +716,7 @@ size_t plp(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t rol(bus* bus, cpu* cpu, uint16_t address) {
+size_t rol(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 	uint8_t result = (operand << 1) | cpu->p.c;
@@ -730,7 +730,7 @@ size_t rol(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t rol_a(bus* bus, cpu* cpu, uint16_t address) {
+size_t rol_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t operand = cpu_read(bus, address);
 
@@ -743,7 +743,7 @@ size_t rol_a(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t ror(bus* bus, cpu* cpu, uint16_t address) {
+size_t ror(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 	uint8_t result = (operand >> 1) | (cpu->p.c << 7);
@@ -757,7 +757,7 @@ size_t ror(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t ror_a(bus* bus, cpu* cpu, uint16_t address) {
+size_t ror_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 
@@ -770,7 +770,7 @@ size_t ror_a(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t rti(bus* bus, cpu* cpu, uint16_t address) {
+size_t rti(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t status = pop(bus, cpu);
 	cpu->p.c = status;
@@ -788,7 +788,7 @@ size_t rti(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t rts(bus* bus, cpu* cpu, uint16_t address) {
+size_t rts(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t lo = pop(bus, cpu);
 	uint8_t hi = pop(bus, cpu);
@@ -799,7 +799,7 @@ size_t rts(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t sbc(bus* bus, cpu* cpu, uint16_t address) {
+size_t sbc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = ~cpu_read(bus, address);
 	uint16_t result = operand + cpu->a + cpu->p.c;
@@ -814,49 +814,49 @@ size_t sbc(bus* bus, cpu* cpu, uint16_t address) {
 	return 0; 
 }
 
-size_t sec(bus* bus, cpu* cpu, uint16_t address) {
+size_t sec(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->p.c = 1;
 	
 	return 0;
 }
 
-size_t sed(bus* bus, cpu* cpu, uint16_t address) {
+size_t sed(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->p.d = 1;
 	
 	return 0;
 }
 
-size_t sei(bus* bus, cpu* cpu, uint16_t address) {
+size_t sei(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->p.i = 1;
 	
 	return 0;
 }
 
-size_t sta(bus* bus, cpu* cpu, uint16_t address) {
+size_t sta(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu_write(bus, cpu->a, address);
 	
 	return 0;
 }
 
-size_t stx(bus* bus, cpu* cpu, uint16_t address) {
+size_t stx(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu_write(bus, cpu->x, address);
 	
 	return 0;
 }
 
-size_t sty(bus* bus, cpu* cpu, uint16_t address) {
+size_t sty(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu_write(bus, cpu->y, address);
 
 	return 0;
 }
 
-size_t tax(bus* bus, cpu* cpu, uint16_t address) {
+size_t tax(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->x = cpu->a;
 
@@ -866,7 +866,7 @@ size_t tax(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t tay(bus* bus, cpu* cpu, uint16_t address) {
+size_t tay(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->y = cpu->a;
 
@@ -876,7 +876,7 @@ size_t tay(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t tsx(bus* bus, cpu* cpu, uint16_t address) {
+size_t tsx(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->x = cpu->s;
 
@@ -886,7 +886,7 @@ size_t tsx(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t txa(bus* bus, cpu* cpu, uint16_t address) {
+size_t txa(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a = cpu->x;
 
@@ -896,14 +896,14 @@ size_t txa(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t txs(bus* bus, cpu* cpu, uint16_t address) {
+size_t txs(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->s = cpu->x;
 
 	return 0;
 }
 
-size_t tya(bus* bus, cpu* cpu, uint16_t address) {
+size_t tya(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a = cpu->y;
 
@@ -913,7 +913,7 @@ size_t tya(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t ahx(bus* bus, cpu* cpu, uint16_t address) {
+size_t ahx(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t hi_before = (cpu->pc - 1) >> 8;
 
@@ -922,7 +922,7 @@ size_t ahx(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t alr(bus* bus, cpu* cpu, uint16_t address) {
+size_t alr(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	and(bus, cpu, address);
 	lsr_a(bus, cpu, address);
@@ -939,7 +939,7 @@ size_t alr(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t arr(bus* bus, cpu* cpu, uint16_t address) {
+size_t arr(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 
@@ -957,7 +957,7 @@ size_t arr(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t anc(bus* bus, cpu* cpu, uint16_t address) {
+size_t anc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	and(bus, cpu, address);
 
@@ -971,7 +971,7 @@ size_t anc(bus* bus, cpu* cpu, uint16_t address) {
 	
 	return 0;
 }
-size_t axs(bus* bus, cpu* cpu, uint16_t address) {
+size_t axs(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 
@@ -985,7 +985,7 @@ size_t axs(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t dcp(bus* bus, cpu* cpu, uint16_t address) {
+size_t dcp(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	dec(bus, cpu, address);
 	cmp(bus, cpu, address);
@@ -993,7 +993,7 @@ size_t dcp(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t isc(bus* bus, cpu* cpu, uint16_t address) {
+size_t isc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	inc(bus, cpu, address);
 	sbc(bus, cpu, address);
@@ -1001,14 +1001,14 @@ size_t isc(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t kil(bus* bus, cpu* cpu, uint16_t address) {
+size_t kil(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	printf("kil opcode executed D:.\n");
 	exit(EXIT_FAILURE);
 
 	return 0;
 }
-size_t las(bus* bus, cpu* cpu, uint16_t address) {
+size_t las(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	uint8_t operand = cpu_read(bus, address);
 
@@ -1022,7 +1022,7 @@ size_t las(bus* bus, cpu* cpu, uint16_t address) {
 
 	return 0;
 }
-size_t lax(bus* bus, cpu* cpu, uint16_t address) {
+size_t lax(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 
@@ -1035,7 +1035,7 @@ size_t lax(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t rla(bus* bus, cpu* cpu, uint16_t address) {
+size_t rla(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	rol(bus, cpu, address);
 	and(bus, cpu, address);
@@ -1043,7 +1043,7 @@ size_t rla(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t rra(bus* bus, cpu* cpu, uint16_t address) {
+size_t rra(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	ror(bus, cpu, address);
 	adc(bus, cpu, address);
@@ -1051,14 +1051,14 @@ size_t rra(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t sax(bus* bus, cpu* cpu, uint16_t address) {
+size_t sax(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu_write(bus, cpu->a & cpu->x, address);
 	
 	return 0;
 }
 
-size_t slo(bus* bus, cpu* cpu, uint16_t address) {
+size_t slo(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	asl(bus, cpu, address);
 	ora(bus, cpu, address);
@@ -1066,7 +1066,7 @@ size_t slo(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t sre(bus* bus, cpu* cpu, uint16_t address) {
+size_t sre(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	lsr(bus, cpu, address);
 	eor(bus, cpu, address);
@@ -1074,7 +1074,7 @@ size_t sre(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t shy(bus* bus, cpu* cpu, uint16_t address) {
+size_t shy(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t hi_before = (cpu->pc - 1) >> 8;
 
@@ -1083,7 +1083,7 @@ size_t shy(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t shx(bus* bus, cpu* cpu, uint16_t address) { 
+size_t shx(nes_bus* bus, nes_cpu* cpu, uint16_t address) { 
 	
 	uint8_t hi_before = (cpu->pc - 1) >> 8;
 
@@ -1092,7 +1092,7 @@ size_t shx(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t tas(bus* bus, cpu* cpu, uint16_t address) {
+size_t tas(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t hi_before = (cpu->pc - 1) >> 8;
 	uint8_t tmp = cpu->a & cpu->x;
@@ -1103,7 +1103,7 @@ size_t tas(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t xaa(bus* bus, cpu* cpu, uint16_t address) {
+size_t xaa(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
 
@@ -1115,13 +1115,13 @@ size_t xaa(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-void push(bus* bus, cpu* cpu, uint8_t element) {
+void push(nes_bus* bus, nes_cpu* cpu, uint8_t element) {
 
 	cpu_write(bus, element, STACK_PAGE + cpu->s);
 	--cpu->s;
 }
 
-uint8_t pop(bus* bus, cpu* cpu) {
+uint8_t pop(nes_bus* bus, nes_cpu* cpu) {
 
 	++cpu->s;
 	uint8_t element = cpu_read(bus, STACK_PAGE + cpu->s);
@@ -1129,7 +1129,7 @@ uint8_t pop(bus* bus, cpu* cpu) {
 	return element;
 }
 
-uint8_t colapse_status(cpu* cpu) {
+uint8_t colapse_status(nes_cpu* cpu) {
 	
 	uint8_t status = cpu->p.c | (cpu->p.z << 1) | (cpu->p.i << 2) | (cpu->p.d << 3) | 
 					(cpu->p.b << 4) | (cpu->p.v << 6) | (cpu->p.n << 7);
