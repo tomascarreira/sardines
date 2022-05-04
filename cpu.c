@@ -361,11 +361,11 @@ size_t beq(bus* bus, cpu* cpu, uint16_t address) {
 
 size_t bit(bus* bus, cpu* cpu, uint16_t address) {
 
-	uint8_t temp = cpu_read(bus, address) & cpu->a;
+	uint8_t tmp = cpu_read(bus, address) & cpu->a;
 
-	cpu->p.z = temp == 0;
-	cpu->p.v = (temp >> 6) & 0x01;
-	cpu->p.n = temp >> 7;
+	cpu->p.z = tmp == 0;
+	cpu->p.v = (tmp >> 6) & 0x01;
+	cpu->p.n = tmp >> 7;
 
 	return 0;
 }
@@ -907,25 +907,207 @@ size_t tya(bus* bus, cpu* cpu, uint16_t address) {
 	return 0;
 }
 
-size_t ahx(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t alr(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t arr(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t anc(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t axs(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t dcp(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t isc(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t kil(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t las(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t lax(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t rla(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t rra(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t sax(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t slo(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t sre(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t shy(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t shx(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t tas(bus* bus, cpu* cpu, uint16_t address) { return 0; }
-size_t xaa(bus* bus, cpu* cpu, uint16_t address) { return 0; }
+size_t ahx(bus* bus, cpu* cpu, uint16_t address) {
+
+	uint8_t hi_before = (cpu->pc - 1) >> 8;
+
+	cpu_write(bus, cpu->a & cpu->x & (hi_before + 1), address);
+
+	return 0;
+}
+
+size_t alr(bus* bus, cpu* cpu, uint16_t address) {
+
+	and(bus, cpu, address);
+	lsr_a(bus, cpu, address);
+
+	/*uint8_t operand = cpu_read(bus, address); 
+
+	uint8_t tmp = cpu->a & operand;
+	cpu->a >>= 1;
+
+	cpu->p.c = tmp;
+	cpu->p.z = cpu->a == 0;
+	cpu->p.n = cpu->a >> 7;*/
+
+	return 0;
+}
+
+size_t arr(bus* bus, cpu* cpu, uint16_t address) {
+	
+	uint8_t operand = cpu_read(bus, address);
+
+	uint8_t tmp = cpu->a & operand;
+	cpu->a >>= 1;
+	
+	uint8_t carry = cpu->p.c;
+	cpu->p.c = tmp >> 7;
+	cpu->p.z = cpu->a == 0;
+	cpu->p.v = (tmp >> 7) & (tmp >> 6);
+	cpu->p.n = cpu->a >> 7;
+
+	cpu->a = (carry << 7) | (cpu->a & 0x7f);
+
+	return 0;
+}
+
+size_t anc(bus* bus, cpu* cpu, uint16_t address) {
+	
+	and(bus, cpu, address);
+
+	cpu->p.n = cpu->a >> 7;
+	
+	/*cpu->a &= cpu_read(bus, address);
+
+	cpu->p.c = cpu->a >> 7;
+	cpu->p.z = cpu->a == 0;
+	cpu->p.n = cpu->a >> 7;*/
+	
+	return 0;
+}
+size_t axs(bus* bus, cpu* cpu, uint16_t address) {
+	
+	uint8_t operand = cpu_read(bus, address);
+
+	uint8_t tmp = cpu->a & cpu->x;
+	cpu->x = tmp - operand;
+
+	cpu->p.c = tmp >= operand;
+	cpu->p.z = cpu->x == 0;
+	cpu->p.n = cpu->x >> 7;
+	
+	return 0;
+}
+
+size_t dcp(bus* bus, cpu* cpu, uint16_t address) {
+	
+	dec(bus, cpu, address);
+	cmp(bus, cpu, address);
+	
+	return 0;
+}
+
+size_t isc(bus* bus, cpu* cpu, uint16_t address) {
+	
+	inc(bus, cpu, address);
+	sbc(bus, cpu, address);
+	
+	return 0;
+}
+
+size_t kil(bus* bus, cpu* cpu, uint16_t address) {
+
+	printf("kil opcode executed D:.\n");
+	exit(EXIT_FAILURE);
+
+	return 0;
+}
+size_t las(bus* bus, cpu* cpu, uint16_t address) {
+
+	uint8_t operand = cpu_read(bus, address);
+
+	uint8_t tmp = operand & cpu->s;
+	cpu->a = tmp;
+	cpu->x = tmp;
+	cpu->s = tmp;
+
+	cpu->p.z = cpu->a == 0;
+	cpu->p.n = cpu->a >> 7;
+
+	return 0;
+}
+size_t lax(bus* bus, cpu* cpu, uint16_t address) {
+	
+	uint8_t operand = cpu_read(bus, address);
+
+	cpu->a = operand;
+	cpu->x = operand;
+
+	cpu->p.z = cpu->a == 0;
+	cpu->p.n = cpu->a >> 7;
+	
+	return 0;
+}
+
+size_t rla(bus* bus, cpu* cpu, uint16_t address) {
+	
+	rol(bus, cpu, address);
+	and(bus, cpu, address);
+
+	return 0;
+}
+
+size_t rra(bus* bus, cpu* cpu, uint16_t address) {
+	
+	ror(bus, cpu, address);
+	adc(bus, cpu, address);
+	
+	return 0;
+}
+
+size_t sax(bus* bus, cpu* cpu, uint16_t address) {
+	
+	cpu_write(bus, cpu->a & cpu->x, address);
+	
+	return 0;
+}
+
+size_t slo(bus* bus, cpu* cpu, uint16_t address) {
+	
+	asl(bus, cpu, address);
+	ora(bus, cpu, address);
+	
+	return 0;
+}
+
+size_t sre(bus* bus, cpu* cpu, uint16_t address) {
+	
+	lsr(bus, cpu, address);
+	eor(bus, cpu, address);
+	
+	return 0;
+}
+
+size_t shy(bus* bus, cpu* cpu, uint16_t address) {
+	
+	uint8_t hi_before = (cpu->pc - 1) >> 8;
+
+	cpu_write(bus, cpu->y & hi_before, address);
+	
+	return 0;
+}
+
+size_t shx(bus* bus, cpu* cpu, uint16_t address) { 
+	
+	uint8_t hi_before = (cpu->pc - 1) >> 8;
+
+	cpu_write(bus, cpu->x & hi_before, address);
+	
+	return 0;
+}
+
+size_t tas(bus* bus, cpu* cpu, uint16_t address) {
+	
+	uint8_t hi_before = (cpu->pc - 1) >> 8;
+	uint8_t tmp = cpu->a & cpu->x;
+
+	cpu->s = tmp;
+	cpu_write(bus, tmp & hi_before, address);
+	
+	return 0;
+}
+
+size_t xaa(bus* bus, cpu* cpu, uint16_t address) {
+	
+	uint8_t operand = cpu_read(bus, address);
+
+	cpu->p.z = cpu->a == 0;
+	cpu->p.n = cpu->a >> 7;
+
+	cpu->a = (cpu->a | XAA_CONST) & cpu->x & operand;
+	
+	return 0;
+}
 
 void push(bus* bus, cpu* cpu, uint8_t element) {
 

@@ -3,6 +3,7 @@
 
 #define STACK_POINTER 0xfd
 #define STACK_PAGE 0x100
+#define XAA_CONST 0xff // chip and/or temperature dependent used only for ilegal opcode xaa
 
 typedef struct cpu cpu;
 struct cpu {
