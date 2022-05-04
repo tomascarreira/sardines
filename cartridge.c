@@ -109,11 +109,11 @@ uint8_t mapper_read(bus* bus, uint16_t address) {
 				exit(EXIT_FAILURE);
 
 			} else if (address >= 0x8000 && address <= 0xbfff) {
-				value = bus->mapper.rom[address - 0x8000];
+				value = bus->mapper.rom[address - 0xc000];
 
 			} else if (address >= 0xc000 && address <= 0xffff) {
 				if (bus->mapper.header.prgrom == 1) {
-					value = bus->mapper.rom[address - 0x8000];
+					value = bus->mapper.rom[address - 0xc000];
 				} else if (bus->mapper.header.prgrom == 2) {
 					value = bus->mapper.rom[address - 0xc000 + 0x4000];
 				} else {
