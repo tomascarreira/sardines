@@ -16,7 +16,7 @@ struct cpu {
 		uint8_t i:1;
 		uint8_t d:1;
 		uint8_t b:2;
-		uint8_t o:1;
+		uint8_t v:1;
 		uint8_t n:1;
 	} p;
 };
