@@ -89,6 +89,10 @@ uint16_t get_reset_vector(bus* bus) {
 	return (hi << 8) | lo;
 }
 
+uint16_t get_irq_vector(bus* bus) {
+
+	uint8_t lo = cpu_read(bus, 0xfffe);
+	uint8_t hi = cpu_read(bus, 0xffff);
 
 	return (hi << 8) | lo;
 }
