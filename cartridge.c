@@ -71,6 +71,9 @@ mapper init_mapper(uint8_t* rom, nes_header header) {
 	switch (header.number) {
 
 		case 0:
+			;
+			uint8_t* prgram = calloc(1, 0x2000);
+			mapper.prgram = prgram;
 			break;
 
 		default:
@@ -105,8 +108,7 @@ uint8_t mapper_read(bus* bus, uint16_t address) {
 
 		case 0:
 			if (address >= 0x6000 && address <= 0x7fff) {
-				printf("Read PRG RAM at %02x not implemented.\n", address);
-				exit(EXIT_FAILURE);
+				value = bus->mapper.prgram[address - 0x6000];
 
 			} else if (address >= 0x8000 && address <= 0xbfff) {
 				value = bus->mapper.rom[address - 0xc000];
@@ -142,8 +144,7 @@ void mapper_write(bus* bus, uint8_t value, uint16_t address) {
 
 		case 0:
 			if (address >= 0x6000 && address <= 0x7fff) {
-				printf("Write PRG RAM at %02x not implemented.\n", address);
-				exit(EXIT_FAILURE);
+				bus->mapper.prgram[address - 0x6000] = value;
 
 			} else if (address >= 0x8000 && address <= 0xffff) {
 				printf("Write to PRG ROM at %02x is not legal (i think).\n", address);

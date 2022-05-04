@@ -25,6 +25,7 @@ typedef struct mapper mapper;
 struct mapper {
 	nes_header header;
 	uint8_t* rom;
+	uint8_t* prgram;
 	void* registers;
 };
 
