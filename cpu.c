@@ -592,7 +592,7 @@ size_t jmp(bus* bus, cpu* cpu, uint16_t address) {
 
 size_t jsr(bus* bus, cpu* cpu, uint16_t address) {
 	
-	push(bus, cpu, (cpu->pc >> 8) - 1);
+	push(bus, cpu, (cpu->pc -1) >> 8);
 	push(bus, cpu, cpu->pc - 1);
 
 	cpu->pc = address;
