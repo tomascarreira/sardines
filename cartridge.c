@@ -111,13 +111,13 @@ uint8_t mapper_read(bus* bus, uint16_t address) {
 				value = bus->mapper.prgram[address - 0x6000];
 
 			} else if (address >= 0x8000 && address <= 0xbfff) {
-				value = bus->mapper.rom[address - 0xc000];
+				value = bus->mapper.rom[address - 0x8000];
 
 			} else if (address >= 0xc000 && address <= 0xffff) {
 				if (bus->mapper.header.prgrom == 1) {
 					value = bus->mapper.rom[address - 0xc000];
 				} else if (bus->mapper.header.prgrom == 2) {
-					value = bus->mapper.rom[address - 0xc000 + 0x4000];
+					value = bus->mapper.rom[address - 0x8000];
 				} else {
 					printf("Bad mapper!\n");
 					exit(EXIT_FAILURE);
