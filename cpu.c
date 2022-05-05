@@ -671,7 +671,7 @@ size_t lsr(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 size_t lsr_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
-	uint8_t operand = cpu_read(bus, address);
+	uint8_t operand = cpu->a;
 
 	cpu->a = operand >> 1;
 
@@ -754,7 +754,7 @@ size_t rol(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 size_t rol_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
-	uint8_t operand = cpu_read(bus, address);
+	uint8_t operand = cpu->a;
 
 	cpu->a = (cpu->a << 1) | cpu->p.c;
 
