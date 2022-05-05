@@ -198,20 +198,22 @@ void log_abl(nes_bus* bus, nes_cpu* cpu) {
 
 void log_abx(nes_bus* bus, nes_cpu* cpu) {
 
-	uint8_t hi = log_read(bus, cpu->pc + 1);
-	uint8_t lo = log_read(bus, cpu->pc + 2);
-	uint16_t tmp = ((hi << 8) | lo) + cpu->x; 
+	uint8_t hi = log_read(bus, cpu->pc + 2);
+	uint8_t lo = log_read(bus, cpu->pc + 1);
+	uint16_t tmp = ((hi << 8) | lo); 
 
-	printf("$%02X%02X = %02X                  ", hi, lo, log_read(bus, tmp));	
+	printf("$%04X,Y @ %04X = %02X         ",
+			tmp, (uint16_t) (tmp + cpu->x), log_read(bus, tmp + cpu->x));	
 }
 
 void log_aby(nes_bus* bus, nes_cpu* cpu) {
 
-	uint8_t hi = log_read(bus, cpu->pc + 1);
-	uint8_t lo = log_read(bus, cpu->pc + 2);
-	uint16_t tmp = ((hi << 8) | lo) + cpu->y; 
+	uint8_t hi = log_read(bus, cpu->pc + 2);
+	uint8_t lo = log_read(bus, cpu->pc + 1);
+	uint16_t tmp = ((hi << 8) | lo); 
 
-	printf("$%02X%02X = %02X                  ", hi, lo, log_read(bus, tmp));	
+	printf("$%04X,Y @ %04X = %02X         ",
+			tmp, (uint16_t) (tmp + cpu->y), log_read(bus, tmp + cpu->y));	
 }
 
 void log_rel(nes_bus* bus, nes_cpu* cpu) {
@@ -223,19 +225,19 @@ void log_rel(nes_bus* bus, nes_cpu* cpu) {
 
 void log_ind(nes_bus* bus, nes_cpu* cpu) {
 
-	uint8_t hi = log_read(bus, cpu->pc + 1);
-	uint8_t lo = log_read(bus, cpu->pc + 2);
+	uint8_t hi = log_read(bus, cpu->pc + 2);
+	uint8_t lo = log_read(bus, cpu->pc + 1);
 	uint16_t tmp = (hi << 8) | lo;
 
 	uint16_t addr;
 	if (lo == 0xff) {
-		addr = (log_read(bus, tmp & 0xff) << 8) | (log_read(bus, tmp));
+		addr = (log_read(bus, tmp & 0xff00) << 8) | (log_read(bus, tmp));
 
 	} else {
 		addr = (log_read(bus, tmp + 1) << 8) | (log_read(bus, tmp));
 	}
 
-	printf("($%04X) = %04X              ", tmp, log_read(bus, addr));	
+	printf("($%04X) = %04X              ", tmp, addr);	
 }
 
 void log_izx(nes_bus* bus, nes_cpu* cpu) {
