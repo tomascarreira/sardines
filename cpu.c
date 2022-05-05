@@ -272,7 +272,7 @@ size_t izy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	uint8_t lo = cpu_read(bus, zp_ptr);
 	uint8_t hi = cpu_read(bus, (zp_ptr + 1) & 0xff);
 
-	*address = ((hi >> 8) | lo) + cpu->y;
+	*address = ((hi << 8) | lo) + cpu->y;
 
 	if (lo + cpu->y > 0xff) {
 		return 1;
