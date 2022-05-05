@@ -376,11 +376,13 @@ size_t beq(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 size_t bit(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
-	uint8_t tmp = cpu_read(bus, address) & cpu->a;
+	uint8_t operand = cpu_read(bus, address);
+
+	uint8_t tmp = operand & cpu->a;
 
 	cpu->p.z = tmp == 0;
-	cpu->p.v = (tmp >> 6) & 0x01;
-	cpu->p.n = tmp >> 7;
+	cpu->p.v = (operand >> 6) & 0x01;
+	cpu->p.n = operand >> 7;
 
 	return 0;
 }
