@@ -167,16 +167,16 @@ void log_zpx(nes_bus* bus, nes_cpu* cpu) {
 
 	uint8_t tmp = log_read(bus, cpu->pc + 1);
 
-	printf("$%02X = %02X                    ",
-			tmp, log_read(bus, (tmp + cpu->x) & 0xff));	
+	printf("$%02X,X @ %02X = %02X             ",
+			tmp, (uint8_t) (tmp +cpu->x), log_read(bus, (tmp + cpu->x) & 0xff));	
 }
 
 void log_zpy(nes_bus* bus, nes_cpu* cpu) {
 
 	uint8_t tmp = log_read(bus, cpu->pc + 1);
 
-	printf( "$%02X = %02X                    ",
-			tmp, log_read(bus, (tmp + cpu->y) & 0xff));	
+	printf("$%02X,X @ %02X = %02X             ",
+			tmp, (uint8_t) (tmp +cpu->y), log_read(bus, (tmp + cpu->y) & 0xff));
 }
 
 void log_abl(nes_bus* bus, nes_cpu* cpu) {

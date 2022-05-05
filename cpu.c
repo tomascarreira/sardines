@@ -162,16 +162,20 @@ size_t zp(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 size_t zpx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
-	*address = cpu_read(bus, (cpu->pc + cpu->x) & 0xff);
+	uint8_t operand =	cpu_read(bus, cpu->pc);
 	++cpu->pc;
+
+	*address = (operand + cpu->x) & 0xff;
 
 	return 0;
 }
 
 size_t zpy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
-	*address = cpu_read(bus, (cpu->pc + cpu->y) & 0xff);
+	uint8_t operand =	cpu_read(bus, cpu->pc);
 	++cpu->pc;
+
+	*address = (operand + cpu->y) & 0xff;
 
 	return 0;
 }
