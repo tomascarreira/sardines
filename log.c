@@ -252,7 +252,7 @@ void log_izx(nes_bus* bus, nes_cpu* cpu) {
 
 void log_izy(nes_bus* bus, nes_cpu* cpu) {
 
-	uint8_t zp_ptr = cpu->pc + 1;
+	uint8_t zp_ptr = cpu_read(bus, cpu->pc + 1);
 
 	uint8_t lo = log_read(bus, zp_ptr);
 	uint8_t hi = log_read(bus, (zp_ptr + 1) & 0xff);
