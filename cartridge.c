@@ -104,6 +104,14 @@ uint16_t get_irq_vector(nes_bus* bus) {
 	return (hi << 8) | lo;
 }
 
+uint16_t get_nmi_vector(nes_bus* bus) {
+
+	uint8_t lo = cpu_read(bus, 0xfffa);
+	uint8_t hi = cpu_read(bus, 0xfffb);
+
+	return (hi << 8) | lo;
+}
+
 uint8_t mapper_read(nes_bus* bus, uint16_t address) {
 
 	uint8_t value;

@@ -1159,3 +1159,28 @@ uint8_t colapse_status(nes_cpu* cpu) {
 
 	return status;
 }
+
+void nmi(nes_bus* bus, nes_cpu* cpu) {
+
+	push(bus, cpu, cpu->pc >> 8);
+	push(bus, cpu, cpu->pc >> 8);
+	push(bus, cpu, colapse_status(cpu));
+
+	cpu->pc = get_nmi_vector(bus);
+}
+
+void irq(nes_bus* bus, nes_cpu* cpu) {
+
+	push(bus, cpu, cpu->pc >> 8);
+	push(bus, cpu, cpu->pc >> 8);
+	push(bus, cpu, colapse_status(cpu));
+
+	cpu->pc = get_irq_vector(bus);
+}
+
+void reset(nes_bus* bus, nes_cpu* cpu) {
+
+	cpu->s -= 3;
+	cpu->p.i = 1;
+	cpu->pc = get_reset_vector(bus);
+}

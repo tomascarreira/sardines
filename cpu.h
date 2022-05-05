@@ -126,4 +126,8 @@ void push(nes_bus* bus, nes_cpu* cpu, uint8_t element);
 uint8_t pop(nes_bus* bus, nes_cpu* cpu);
 uint8_t colapse_status(nes_cpu* cpu);
 
+void nmi(nes_bus* bus, nes_cpu* cpu);
+void irq(nes_bus* bus, nes_cpu* cpu);
+void reset(nes_bus* bus, nes_cpu* cpu);
+
 #endif
