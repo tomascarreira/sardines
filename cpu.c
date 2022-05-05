@@ -964,17 +964,14 @@ size_t alr(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 size_t arr(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	uint8_t operand = cpu_read(bus, address);
-
-	uint8_t tmp = cpu->a & operand;
-	cpu->a >>= 1;
 	
-	uint8_t carry = cpu->p.c;
-	cpu->p.c = tmp >> 7;
-	cpu->p.z = cpu->a == 0;
-	cpu->p.v = (tmp >> 7) & (tmp >> 6);
-	cpu->p.n = cpu->a >> 7;
+	uint8_t tmp = (cpu->a & operand) >> 1;
+	cpu->a = (tmp & 0x7f) | (cpu->p.c << 7);  
 
-	cpu->a = (carry << 7) | (cpu->a & 0x7f);
+	cpu->p.c = cpu->a >> 6;	
+	cpu->p.z = cpu->a == 0;
+	cpu->p.v = (cpu->a >> 6) ^ (cpu->a >> 5);
+	cpu->p.n = cpu->a >> 7;
 
 	return 0;
 }
@@ -1027,8 +1024,6 @@ size_t kil(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	printf("kil opcode executed D:.\n");
 	exit(EXIT_FAILURE);
-
-	return 0;
 }
 size_t las(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
