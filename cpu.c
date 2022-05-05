@@ -447,6 +447,8 @@ size_t brk(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	push(bus, cpu, colapse_status(cpu));
 
 	cpu->pc = get_irq_vector(bus);
+
+	cpu->p.i = 1;
 	
 	return 0;
 }
