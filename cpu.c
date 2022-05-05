@@ -287,9 +287,11 @@ size_t adc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	uint16_t result = operand + cpu->a + cpu->p.c;
 
 	cpu->p.c = result > 0xff;
-	cpu->p.z = result == 0x00;
-	cpu->p.v = ((uint8_t) result ^ cpu->a) & ((uint8_t) result ^ operand) >> 7;
-	cpu->p.n = (int8_t) result < 0; 
+	cpu->p.z = (uint8_t) result == 0x00;
+	cpu->p.v = (((uint8_t) result ^ cpu->a) & ((uint8_t) result ^ operand)) >> 7;
+	cpu->p.n = (int8_t) result < 0;
+
+	cpu->a = result;
 	
 	return 0;
 }
@@ -819,11 +821,11 @@ size_t sbc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	uint16_t result = operand + cpu->a + cpu->p.c;
 
 	cpu->p.c = result > 0xff;
-	cpu->p.z = result == 0x00;
-	cpu->p.v = ((uint8_t) result ^ cpu->a) & ((uint8_t) result ^ operand) >> 7;
+	cpu->p.z = (uint8_t) result == 0x00;
+	cpu->p.v = (((uint8_t) result ^ cpu->a) & ((uint8_t) result ^ operand)) >> 7;
 	cpu->p.n = (int8_t) result < 0; 
-	
-	return 0;
+
+	cpu->a = result;
 	
 	return 0; 
 }
