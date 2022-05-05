@@ -256,7 +256,7 @@ size_t izx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	uint8_t zp_ptr = cpu_read(bus, cpu->pc);
 	++cpu->pc;
 
-	uint8_t lo = cpu_read(bus, zp_ptr + cpu->x);
+	uint8_t lo = cpu_read(bus, (zp_ptr + cpu->x) & 0xff);
 	uint8_t hi = cpu_read(bus, (zp_ptr + cpu->x + 1) & 0xff);
 
 	*address = (hi << 8) | lo;
