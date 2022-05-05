@@ -18,7 +18,7 @@ char* log_opcode_table[256] = {
 	"CPY", "CMP", "NOP", "DCP", "CPY", "CMP", "DEC", "DCP", "INY", "CMP", "DEX", "AXS", "CPY", "CMP", "DEC", "DCP",
 	"BNE", "CMP", "KIL", "DCP", "NOP", "CMP", "DEC", "DCP", "CLD", "CMP", "NOP", "DCP", "NOP", "CMP", "DEC", "DCP",
 	"CPX", "SBC", "NOP", "ISC", "CPX", "SBC", "INC", "ISC", "INX", "SBC", "NOP", "SBC", "CPX", "SBC", "INC", "ISC",
-	"BEQ", "SBC", "KIL", "ISC", "NOP", "SBC", "INC", "ISC", "SED", "SBC", "NOP", "SBC", "INC", "ISC"
+	"BEQ", "SBC", "KIL", "ISC", "NOP", "SBC", "INC", "ISC", "SED", "SBC", "NOP", "ISC", "NOP", "SBC", "INC", "ISC"
 };
 
 const size_t log_opcode_size_table[256] = {
@@ -175,7 +175,7 @@ void log_zpy(nes_bus* bus, nes_cpu* cpu) {
 
 	uint8_t tmp = log_read(bus, cpu->pc + 1);
 
-	printf("$%02X,X @ %02X = %02X             ",
+	printf("$%02X,Y @ %02X = %02X             ",
 			tmp, (uint8_t) (tmp +cpu->y), log_read(bus, (tmp + cpu->y) & 0xff));
 }
 
@@ -202,7 +202,7 @@ void log_abx(nes_bus* bus, nes_cpu* cpu) {
 	uint8_t lo = log_read(bus, cpu->pc + 1);
 	uint16_t tmp = ((hi << 8) | lo); 
 
-	printf("$%04X,Y @ %04X = %02X         ",
+	printf("$%04X,X @ %04X = %02X         ",
 			tmp, (uint16_t) (tmp + cpu->x), log_read(bus, tmp + cpu->x));	
 }
 
