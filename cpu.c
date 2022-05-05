@@ -1093,18 +1093,22 @@ size_t sre(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 size_t shy(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
-	uint8_t hi_before = (cpu->pc - 1) >> 8;
+	if (((address - cpu->x) ^ address) & 0x100) {
+		address = (address & (cpu->y << 8)) | (address & 0x00ff);
+	}
 
-	cpu_write(bus, cpu->y & hi_before, address);
+	cpu_write(bus, cpu->y & (((address - cpu->x) >> 8) + 1), address);
 	
 	return 0;
 }
 
 size_t shx(nes_bus* bus, nes_cpu* cpu, uint16_t address) { 
 	
-	uint8_t hi_before = (cpu->pc - 1) >> 8;
+	if (((address - cpu->y) ^ address) & 0x100) {
+		address = (address & (cpu->x << 8)) | (address & 0x00ff);
+	}
 
-	cpu_write(bus, cpu->x & hi_before, address);
+	cpu_write(bus, cpu->x & (((address - cpu->y) >> 8) + 1), address);
 	
 	return 0;
 }
