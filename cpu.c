@@ -742,7 +742,7 @@ size_t rol(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	cpu_write(bus, result, address);
 
 	cpu->p.c = operand >> 7;
-	cpu->p.c = result == 0;
+	cpu->p.z = result == 0;
 	cpu->p.n = result >> 7;
 	
 	return 0;
@@ -755,7 +755,7 @@ size_t rol_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	cpu->a = (cpu->a << 1) | cpu->p.c;
 
 	cpu->p.c = operand >> 7;
-	cpu->p.c = cpu->a == 0;
+	cpu->p.z = cpu->a == 0;
 	cpu->p.n = cpu->a >> 7;	 
 
 	return 0;
@@ -769,7 +769,7 @@ size_t ror(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	cpu_write(bus, result, address);
 
 	cpu->p.c = operand;
-	cpu->p.c = result == 0;
+	cpu->p.z = result == 0;
 	cpu->p.n = result >> 7;
 	
 	return 0;
@@ -777,12 +777,12 @@ size_t ror(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 size_t ror_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
-	uint8_t operand = cpu_read(bus, address);
+	uint8_t operand = cpu->a;
 
 	cpu->a = (cpu->a >> 1) | (cpu->p.c << 7);
 
 	cpu->p.c = operand;
-	cpu->p.c = cpu->a == 0;
+	cpu->p.z = cpu->a == 0;
 	cpu->p.n = cpu->a >> 7;	
 	
 	return 0;
