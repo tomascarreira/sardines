@@ -695,9 +695,12 @@ size_t pha(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 }
 
 size_t php(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
+	
+	uint8_t b_flag = cpu->p.b;
 
 	cpu->p.b = 3;	
 	push(bus, cpu, colapse_status(cpu));
+	cpu->p.b = b_flag;
 	
 	return 0;
 }
