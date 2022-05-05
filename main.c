@@ -3,6 +3,8 @@
 #include "bus.h"
 #include "cpu.h"
 
+size_t cycles = 7;
+
 int main(int argc, char* argv[argc+1]) {
 
 	uint8_t* rom = read_rom(argv[1]);
@@ -11,12 +13,10 @@ int main(int argc, char* argv[argc+1]) {
 
 	nes_bus* bus = init_bus(mapper);
 	nes_cpu* cpu = init_cpu(bus);
-
-	size_t clocks = 7;
 		
 	for (size_t i = 0; i < 65; ++i) {
 		clock_cpu(cpu, bus);
-		++clocks;
+		++cycles;
 	}
 
 	free(rom);
@@ -31,3 +31,4 @@ int main(int argc, char* argv[argc+1]) {
 // Known errors:
 //		+1 cycle on addressing modes is happening in instructions that shoudnt happend
 //		needs to free calloc and malloc pointers
+//		improve makefile

@@ -1,6 +1,7 @@
 #include "common.h"
 #include "cpu.h"
 #include "cartridge.h"
+#include "log.h"
 
 const size_t opcode_cycles_table[256] = {
 		7, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
@@ -84,6 +85,8 @@ void clock_cpu(nes_cpu* cpu, nes_bus* bus) {
 		return;
 	}
 	
+	log_instr(bus, cpu);
+
 	uint8_t opcode = cpu_read(bus, cpu->pc);
 	++cpu->pc;
 
