@@ -983,7 +983,7 @@ size_t anc(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	and(bus, cpu, address);
 
-	cpu->p.n = cpu->a >> 7;
+	cpu->p.c = cpu->a >> 7;
 	
 	/*cpu->a &= cpu_read(bus, address);
 
