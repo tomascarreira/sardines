@@ -923,8 +923,8 @@ size_t tya(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 	
 	cpu->a = cpu->y;
 
-	cpu->p.z = cpu->x == 0;
-	cpu->p.n = cpu->x >> 7;
+	cpu->p.z = cpu->a == 0;
+	cpu->p.n = cpu->a >> 7;
 	
 	return 0;
 }
