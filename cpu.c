@@ -159,7 +159,7 @@ size_t zp(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 size_t zpx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
-	*address = (cpu_read(bus, cpu->pc) + cpu->x) & 0xff;
+	*address = cpu_read(bus, (cpu->pc + cpu->x) & 0xff);
 	++cpu->pc;
 
 	return 0;
@@ -167,7 +167,7 @@ size_t zpx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 size_t zpy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
-	*address = (cpu_read(bus, cpu->pc) + cpu->y) & 0xff;
+	*address = cpu_read(bus, (cpu->pc + cpu->y) & 0xff);
 	++cpu->pc;
 
 	return 0;
@@ -236,7 +236,7 @@ size_t ind(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	uint8_t hi = cpu_read(bus, cpu->pc);
 	++cpu->pc;
 
-	uint16_t ptr = (hi << 8)	| lo;
+	uint16_t ptr = (hi << 8) | lo;
 
 	if (lo == 0xff) {
 	   *address = (cpu_read(bus, ptr & 0xff00) << 8) | cpu_read(bus, ptr);
@@ -254,7 +254,7 @@ size_t izx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	++cpu->pc;
 
 	uint8_t lo = cpu_read(bus, zp_ptr + cpu->x);
-	uint8_t hi = cpu_read(bus, zp_ptr + cpu->x + 1);
+	uint8_t hi = cpu_read(bus, (zp_ptr + cpu->x + 1) & 0xff);
 
 	*address = (hi << 8) | lo;
 
@@ -267,7 +267,7 @@ size_t izy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	++cpu->pc;
 
 	uint8_t lo = cpu_read(bus, zp_ptr);
-	uint8_t hi = cpu_read(bus, zp_ptr + 1);
+	uint8_t hi = cpu_read(bus, (zp_ptr + 1) & 0xff);
 
 	*address = ((hi >> 8) | lo) + cpu->y;
 
