@@ -315,6 +315,7 @@ size_t asl(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	cpu->p.c = operand >> 7;
 	cpu->p.z = result == 0;
+	cpu->p.n = (int8_t) result < 0;
 
 	return 0;
 }
@@ -327,6 +328,7 @@ size_t asl_a(nes_bus* bus, nes_cpu* cpu, uint16_t address) {
 
 	cpu->p.c = operand >> 7;
 	cpu->p.z = cpu->a == 0;
+	cpu->p.n = (int8_t) cpu->a < 0;
 
 	return 0;
 }
