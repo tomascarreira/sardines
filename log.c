@@ -240,14 +240,14 @@ void log_ind(nes_bus* bus, nes_cpu* cpu) {
 
 void log_izx(nes_bus* bus, nes_cpu* cpu) {
 	
-	uint8_t zp_ptr = cpu->pc + 1;
+	uint8_t zp_ptr = log_read(bus, cpu->pc + 1);
 
-	uint8_t hi = log_read(bus, zp_ptr + cpu->x + 1);
-	uint8_t lo = log_read(bus, zp_ptr + cpu->x);
+	uint8_t hi = log_read(bus, (zp_ptr + cpu->x + 1) & 0xff);
+	uint8_t lo = log_read(bus, (zp_ptr + cpu->x) & 0xff);
 	uint16_t tmp = (hi << 8) | lo;
 
 	printf("($%02X,X) @ %02X = %04X = %02X    ",
-			zp_ptr, zp_ptr, tmp, log_read(bus, tmp));	
+			zp_ptr, (zp_ptr + cpu->x) & 0xff, tmp, log_read(bus, tmp));	
 }
 
 void log_izy(nes_bus* bus, nes_cpu* cpu) {
