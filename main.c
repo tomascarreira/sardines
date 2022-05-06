@@ -29,6 +29,4 @@ int main(int argc, char* argv[argc+1]) {
 }
 
 // Known errors:
-//		+1 cycle on addressing modes is happening in instructions that shoudnt happend
-//		needs to free calloc and malloc pointers
 //		improve makefile

@@ -19,10 +19,10 @@ const size_t opcode_cycles_table[256] = {
 		2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,
 		2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
 		2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,
-		2, 5, 0, 4, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7
+		2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7
 };
 
-const size_t (*addressing_mode_table[256])(nes_bus*, nes_cpu*, uint16_t*) = {
+const size_t (*addressing_mode_table[256])(nes_bus*, nes_cpu*, uint16_t*, uint8_t) = {
 		imp, izx, imp, izx,  zp,  zp,  zp,  zp, imp, imm, imp, imm, abl, abl, abl, abl,
 		rel, izy, imp, izy, zpx, zpx, zpx, zpx, imp, aby, imp, aby, abx, abx, abx, abx,
 		abl, izx, imp, izx,  zp,  zp,  zp,  zp, imp, imm, imp, imm, abl, abl, abl, abl,
@@ -93,7 +93,7 @@ void clock_cpu(nes_cpu* cpu, nes_bus* bus) {
 	uint16_t address;
 
 	instr_clocks = opcode_cycles_table[opcode];
-	instr_clocks += addressing_mode_table[opcode](bus, cpu, &address);
+	instr_clocks += addressing_mode_table[opcode](bus, cpu, &address, opcode);
 	instr_clocks += opcode_table[opcode](bus, cpu, address);
 	
 	--instr_clocks;
@@ -139,12 +139,12 @@ void cpu_write(nes_bus* bus, uint8_t value, uint16_t address) {
 	}
 }
 
-size_t imp(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t imp(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 	
 	return 0;
 }
 
-size_t imm(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t imm(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 	
 	*address = cpu->pc;
 	++cpu->pc;
@@ -152,7 +152,7 @@ size_t imm(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t zp(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t zp(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 	
 	*address = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -160,7 +160,7 @@ size_t zp(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t zpx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t zpx(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 
 	uint8_t operand =	cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -170,7 +170,7 @@ size_t zpx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t zpy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t zpy(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 
 	uint8_t operand =	cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -180,7 +180,7 @@ size_t zpy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t abl(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t abl(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -193,7 +193,7 @@ size_t abl(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t abx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t abx(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -203,14 +203,17 @@ size_t abx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	*address = ((hi << 8) | lo) + cpu->x;
 
-	if (lo + cpu->x > 0xff) {
+	if ((lo + cpu->x > 0xff) & ((opcode == 0x1c) | (opcode == 0x1d) | (opcode == 0x3c) |
+		(opcode == 0x3d) | (opcode == 0x5c) | (opcode == 0x5d) | (opcode == 0x7c) |
+		(opcode == 0x7d) | (opcode == 0xbc) | (opcode == 0xbd) | (opcode == 0xdc) |
+		(opcode == 0xdd) | (opcode == 0xfc) | (opcode == 0xfd))) {
 		return 1;
 	}
 
 	return 0;
 }
 
-size_t aby(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t aby(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -220,14 +223,16 @@ size_t aby(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	*address = ((hi << 8) | lo) + cpu->y;
 
-	if (lo + cpu->y > 0xff) {
+	if ((lo + cpu->y > 0xff) & ((opcode == 0x1a) | (opcode == 0x39) | (opcode == 0x59) |
+		(opcode == 0x79) | (opcode == 0xb9) | (opcode == 0xbb) | (opcode == 0xbe) |
+		(opcode == 0xbf) | (opcode == 0xd9) | (opcode == 0xf9))) {
 		return 1;
 	}
 
 	return 0;
 }
 
-size_t rel(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t rel(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 	
 	*address = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -235,7 +240,7 @@ size_t rel(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t ind(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t ind(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 	
 	uint8_t lo = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -255,7 +260,7 @@ size_t ind(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t izx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t izx(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 	
 	uint8_t zp_ptr = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -268,7 +273,7 @@ size_t izx(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 	return 0;
 }
 
-size_t izy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
+size_t izy(nes_bus* bus, nes_cpu* cpu, uint16_t* address, uint8_t opcode) {
 	
 	uint8_t zp_ptr = cpu_read(bus, cpu->pc);
 	++cpu->pc;
@@ -278,7 +283,9 @@ size_t izy(nes_bus* bus, nes_cpu* cpu, uint16_t* address) {
 
 	*address = ((hi << 8) | lo) + cpu->y;
 
-	if (lo + cpu->y > 0xff) {
+	if ((lo + cpu->y > 0xff) & ((opcode == 0x11) | (opcode == 0x31) | (opcode == 0x51) |
+		(opcode == 0x71) | (opcode == 0xb1) | (opcode == 0xb3) | (opcode == 0xd1) |
+		(opcode == 0xf1))) {
 		return 1;
 	}
 
