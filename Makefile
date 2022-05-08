@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Wpedantic -g
-OBJS=cartridge.o main.o bus.o cpu.o log.o
+OBJS=cartridge.o main.o cpu.o log.o
 BIN=sardines
 
 all:$(BIN)

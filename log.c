@@ -1,5 +1,6 @@
 #include "common.h"
 #include "cpu.h"
+#include "cartridge.h"
 #include "log.h"
 
 char* log_opcode_table[256] = {
@@ -40,7 +41,7 @@ const size_t log_opcode_size_table[256] = {
 	2, 2, 1, 2, 2, 2, 2, 2, 1, 3, 1, 3, 3, 3, 3, 3
 };
 
-void (*log_addressing_mode_table[256])(nes_bus*, nes_cpu*) = {
+void (*log_addressing_mode_table[256])(nes_cpu) = {
 		log_imp, log_izx, log_imp, log_izx,  log_zp,  log_zp,  log_zp,  log_zp, log_imp, log_imm, log_imp, log_imm, log_abl, log_abl, log_abl, log_abl,
 		log_rel, log_izy, log_imp, log_izy, log_zpx, log_zpx, log_zpx, log_zpx, log_imp, log_aby, log_imp, log_aby, log_abx, log_abx, log_abx, log_abx,
 		log_abl, log_izx, log_imp, log_izx,  log_zp,  log_zp,  log_zp,  log_zp, log_imp, log_imm, log_imp, log_imm, log_abl, log_abl, log_abl, log_abl,
@@ -59,41 +60,41 @@ void (*log_addressing_mode_table[256])(nes_bus*, nes_cpu*) = {
 		log_rel, log_izy, log_imp, log_izy, log_zpx, log_zpx, log_zpx, log_zpx, log_imp, log_aby, log_imp, log_aby, log_abx, log_abx, log_abx, log_abx
 };
 
-void log_instr(nes_bus* bus, nes_cpu* cpu) {
+void log_instr(nes_cpu cpu) {
 
-	uint8_t opcode = log_read(bus, cpu->pc);
+	uint8_t opcode = log_read(cpu.pc);
 	
 	char* opcode_str = log_opcode_table[opcode];
 	size_t opcode_size = log_opcode_size_table[opcode];
 
-	printf("%04X  %02X", cpu->pc, opcode);
+	printf("%04X  %02X", cpu.pc, opcode);
 	switch (opcode_size) {
 		case 1:
 				printf("        ");
 				break;
 
 		case 2: 
-				printf(" %02X     ", log_read(bus, cpu->pc + 1));
+				printf(" %02X     ", log_read(cpu.pc + 1));
 				break;
 
 		case 3: 
-				printf(" %02X %02X  ", log_read(bus, cpu->pc + 1), 
-						log_read(bus, cpu->pc + 2));
+				printf(" %02X %02X  ", log_read(cpu.pc + 1), 
+						log_read(cpu.pc + 2));
 				break;
 	}
 	printf("%s ", opcode_str);
-	log_addressing_mode_table[opcode](bus, cpu);
-	printf("A:%02X X:%02X Y:%02X P:%02X SP:%02X ", cpu->a, cpu->x, cpu->y, colapse_status(cpu), cpu->s);
+	log_addressing_mode_table[opcode](cpu);
+	printf("A:%02X X:%02X Y:%02X P:%02X SP:%02X ", cpu.a, cpu.x, cpu.y, colapse_status(), cpu.s);
 	printf("CYC:%lu", cycles);
 	printf("\n");
 }
 
-uint8_t log_read(nes_bus* bus, uint16_t address) {
+uint8_t log_read(uint16_t address) {
 
 	uint8_t value;
 
 	if (address <= 0x1fff) {
-		value = bus->ram[address & 0x7ff];
+		value = log_read_ram(address);
 
 	} else if (address >= 0x2000 && address <= 0x3fff) {
 		value = 0;
@@ -102,45 +103,15 @@ uint8_t log_read(nes_bus* bus, uint16_t address) {
 		value = 0;
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
-	
-		switch (bus->mapper.header.number) {
-
-			case 0:
-				if (address >= 0x6000 && address <= 0x7fff) {
-					value = bus->mapper.prgram[address - 0x6000];
-
-				} else if (address >= 0x8000 && address <= 0xbfff) {
-					value = bus->mapper.rom[address - 0x8000];
-
-				} else if (address >= 0xc000 && address <= 0xffff) {
-					if (bus->mapper.header.prgrom == 1) {
-						value = bus->mapper.rom[address - 0xc000];
-					} else if (bus->mapper.header.prgrom == 2) {
-						value = bus->mapper.rom[address - 0x8000];
-					} else {
-						printf("Bad mapper!\n");
-						exit(EXIT_FAILURE);
-					}
-
-				} else {
-					printf("Read mapper at %02x not implemented.\n", address);
-					exit(EXIT_FAILURE);
-				}
-
-				break;
-
-			default:
-				printf("Mapper number %03d not supported.\n", bus->mapper.header.number);
-				exit(EXIT_FAILURE);
-		}
+		value = log_read_mapper(address);
 	}
 
 	return value;
 }
 
-void log_imp(nes_bus* bus, nes_cpu* cpu) {
+void log_imp(nes_cpu cpu) {
 
-	uint8_t opcode = log_read(bus, cpu->pc);
+	uint8_t opcode = log_read(cpu.pc);
 
 	if (opcode == 0x0a || opcode == 0x4a || opcode == 0x2a || opcode == 0x6a) {
 		printf("A                           ");
@@ -150,116 +121,116 @@ void log_imp(nes_bus* bus, nes_cpu* cpu) {
 	}
 }
 
-void log_imm(nes_bus* bus, nes_cpu* cpu) {
+void log_imm(nes_cpu cpu) {
 	
-	printf("#$%02X                        ", log_read(bus, cpu->pc + 1));
+	printf("#$%02X                        ", log_read(cpu.pc + 1));
 	
 }
 
-void log_zp(nes_bus* bus, nes_cpu* cpu) {
+void log_zp(nes_cpu cpu) {
 
-	uint8_t tmp = log_read(bus, cpu->pc + 1);
+	uint8_t tmp = log_read(cpu.pc + 1);
 
-	printf("$%02X = %02X                    ", tmp, log_read(bus, tmp));
+	printf("$%02X = %02X                    ", tmp, log_read(tmp));
 }
 
-void log_zpx(nes_bus* bus, nes_cpu* cpu) {
+void log_zpx(nes_cpu cpu) {
 
-	uint8_t tmp = log_read(bus, cpu->pc + 1);
+	uint8_t tmp = log_read(cpu.pc + 1);
 
 	printf("$%02X,X @ %02X = %02X             ",
-			tmp, (uint8_t) (tmp +cpu->x), log_read(bus, (tmp + cpu->x) & 0xff));	
+			tmp, (uint8_t) (tmp +cpu.x), log_read((tmp + cpu.x) & 0xff));	
 }
 
-void log_zpy(nes_bus* bus, nes_cpu* cpu) {
+void log_zpy(nes_cpu cpu) {
 
-	uint8_t tmp = log_read(bus, cpu->pc + 1);
+	uint8_t tmp = log_read(cpu.pc + 1);
 
 	printf("$%02X,Y @ %02X = %02X             ",
-			tmp, (uint8_t) (tmp +cpu->y), log_read(bus, (tmp + cpu->y) & 0xff));
+			tmp, (uint8_t) (tmp +cpu.y), log_read((tmp + cpu.y) & 0xff));
 }
 
-void log_abl(nes_bus* bus, nes_cpu* cpu) {
+void log_abl(nes_cpu cpu) {
 
-	uint8_t hi = log_read(bus, cpu->pc + 2);
-	uint8_t lo = log_read(bus, cpu->pc + 1);
+	uint8_t hi = log_read(cpu.pc + 2);
+	uint8_t lo = log_read(cpu.pc + 1);
 	uint16_t tmp = (hi << 8) | lo;
 
-	uint8_t opcode = log_read(bus, cpu->pc);
+	uint8_t opcode = log_read(cpu.pc);
 
 	if (opcode == 0x4c || opcode == 0x20) {
 		printf("$%04X                       ", tmp);
 
 	} else {
-		printf("$%04X = %02X                  ", tmp, log_read(bus, tmp));
+		printf("$%04X = %02X                  ", tmp, log_read(tmp));
 	}
 		
 }
 
-void log_abx(nes_bus* bus, nes_cpu* cpu) {
+void log_abx(nes_cpu cpu) {
 
-	uint8_t hi = log_read(bus, cpu->pc + 2);
-	uint8_t lo = log_read(bus, cpu->pc + 1);
+	uint8_t hi = log_read(cpu.pc + 2);
+	uint8_t lo = log_read(cpu.pc + 1);
 	uint16_t tmp = ((hi << 8) | lo); 
 
 	printf("$%04X,X @ %04X = %02X         ",
-			tmp, (uint16_t) (tmp + cpu->x), log_read(bus, tmp + cpu->x));	
+			tmp, (uint16_t) (tmp + cpu.x), log_read(tmp + cpu.x));	
 }
 
-void log_aby(nes_bus* bus, nes_cpu* cpu) {
+void log_aby(nes_cpu cpu) {
 
-	uint8_t hi = log_read(bus, cpu->pc + 2);
-	uint8_t lo = log_read(bus, cpu->pc + 1);
+	uint8_t hi = log_read(cpu.pc + 2);
+	uint8_t lo = log_read(cpu.pc + 1);
 	uint16_t tmp = ((hi << 8) | lo); 
 
 	printf("$%04X,Y @ %04X = %02X         ",
-			tmp, (uint16_t) (tmp + cpu->y), log_read(bus, tmp + cpu->y));	
+			tmp, (uint16_t) (tmp + cpu.y), log_read(tmp + cpu.y));	
 }
 
-void log_rel(nes_bus* bus, nes_cpu* cpu) {
+void log_rel(nes_cpu cpu) {
 
-	int8_t offset = log_read(bus, cpu->pc + 1);
+	int8_t offset = log_read(cpu.pc + 1);
 
-	printf("$%04X                       ", cpu->pc + offset + 2);	
+	printf("$%04X                       ", cpu.pc + offset + 2);	
 }
 
-void log_ind(nes_bus* bus, nes_cpu* cpu) {
+void log_ind(nes_cpu cpu) {
 
-	uint8_t hi = log_read(bus, cpu->pc + 2);
-	uint8_t lo = log_read(bus, cpu->pc + 1);
+	uint8_t hi = log_read(cpu.pc + 2);
+	uint8_t lo = log_read(cpu.pc + 1);
 	uint16_t tmp = (hi << 8) | lo;
 
 	uint16_t addr;
 	if (lo == 0xff) {
-		addr = (log_read(bus, tmp & 0xff00) << 8) | (log_read(bus, tmp));
+		addr = (log_read(tmp & 0xff00) << 8) | (log_read(tmp));
 
 	} else {
-		addr = (log_read(bus, tmp + 1) << 8) | (log_read(bus, tmp));
+		addr = (log_read(tmp + 1) << 8) | (log_read(tmp));
 	}
 
 	printf("($%04X) = %04X              ", tmp, addr);	
 }
 
-void log_izx(nes_bus* bus, nes_cpu* cpu) {
+void log_izx(nes_cpu cpu) {
 	
-	uint8_t zp_ptr = log_read(bus, cpu->pc + 1);
+	uint8_t zp_ptr = log_read(cpu.pc + 1);
 
-	uint8_t hi = log_read(bus, (zp_ptr + cpu->x + 1) & 0xff);
-	uint8_t lo = log_read(bus, (zp_ptr + cpu->x) & 0xff);
+	uint8_t hi = log_read((zp_ptr + cpu.x + 1) & 0xff);
+	uint8_t lo = log_read((zp_ptr + cpu.x) & 0xff);
 	uint16_t tmp = (hi << 8) | lo;
 
 	printf("($%02X,X) @ %02X = %04X = %02X    ",
-			zp_ptr, (zp_ptr + cpu->x) & 0xff, tmp, log_read(bus, tmp));	
+			zp_ptr, (zp_ptr + cpu.x) & 0xff, tmp, log_read(tmp));	
 }
 
-void log_izy(nes_bus* bus, nes_cpu* cpu) {
+void log_izy(nes_cpu cpu) {
 
-	uint8_t zp_ptr = cpu_read(bus, cpu->pc + 1);
+	uint8_t zp_ptr = cpu_read(cpu.pc + 1);
 
-	uint8_t lo = log_read(bus, zp_ptr);
-	uint8_t hi = log_read(bus, (zp_ptr + 1) & 0xff);
-	uint16_t tmp = ((hi << 8) | lo) + cpu->y;
+	uint8_t lo = log_read(zp_ptr);
+	uint8_t hi = log_read((zp_ptr + 1) & 0xff);
+	uint16_t tmp = ((hi << 8) | lo) + cpu.y;
 
 	printf("($%02X),Y = %04X @ %04X = %02X  ",
-		zp_ptr, (hi << 8) | lo, tmp, log_read(bus, tmp));
+		zp_ptr, (hi << 8) | lo, tmp, log_read(tmp));
 }
