@@ -104,23 +104,25 @@ void clock_cpu() {
 }
 
 uint8_t cpu_read(uint16_t address) {
-
+	
+	uint8_t value;
 	if (address <= 0x1fff) {
-		return ram[address & 0x7ff];
+		value = ram[address & 0x7ff];
 
 	} else if (address >= 0x2000 && address <= 0x3fff) {
-		return 0;
 
 	} else if (address >= 0x4000 && address <= 0x401f){
-		return 0;
+
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
-		return mapper_read(address);
+		value = mapper_read(address);
 	
 	} else {
 		printf("Read bus address %02x not implemented.\n", address);
 		exit(EXIT_FAILURE);
 	}
+
+	return value;
 }
 
 void cpu_write(uint8_t value, uint16_t address) {
