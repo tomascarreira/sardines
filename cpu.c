@@ -112,7 +112,7 @@ uint8_t cpu_read(uint16_t address) {
 		value = ram[address & 0x7ff];
 
 	} else if (address >= 0x2000 && address <= 0x3fff) {
-		value = ppu_registers_read(address & 0x7);
+		value = ppu_registers_read(address);
 
 	} else if (address >= 0x4000 && address <= 0x401f){
 
@@ -134,7 +134,7 @@ void cpu_write(uint8_t value, uint16_t address) {
 		ram[address & 0x7ff] = value;
 
 	} else if (address >= 0x2000 && address <= 0x3fff) {
-		ppu_registers_write(value, address & 0x7);
+		ppu_registers_write(value, address);
 
 	} else if (address >= 0x4000 && address <= 0x401f){
 		if (address == 0x4014) {

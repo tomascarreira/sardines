@@ -67,7 +67,7 @@ uint8_t ppu_read(uint16_t address) {
 	if (address <= 0x1fff) {
 		value = ppu_mapper_read(address);
 
-	} else if ((address >= 2000) & (address <= 0x3eff)) {
+	} else if (address >= 2000 && address <= 0x3eff) {
 		address &= 0x2fff;
 		if (get_mirroring()) { // vertical mirroring
 			value = vram[0x27ff];
@@ -84,7 +84,7 @@ uint8_t ppu_read(uint16_t address) {
 
 		}
 
-	} else if ((address >= 0x3f00) & (address <= 0x3fff)) {
+	} else if (address >= 0x3f00 && address <= 0x3fff) {
 		address &= 0x1f;
 		if (address == 0x10) address = 0x00;
 		if (address == 0x14) address = 0x04;
@@ -107,7 +107,7 @@ void ppu_write(uint8_t value, uint16_t address) {
 	if (address <= 0x1fff) {
 		ppu_mapper_write(value, address);
 
-	} else if ((address >= 0x2000) & (address <= 0x3eff)) {
+	} else if (address >= 0x2000 && address <= 0x3eff) {
 		address &= 0x2fff;
 		if (get_mirroring()) { // vertical mirroring
 			vram[0x27ff] = value;
@@ -124,7 +124,7 @@ void ppu_write(uint8_t value, uint16_t address) {
 
 		}
 
-	} else if ((address >= 0x3f00) & (address <= 0x3fff)) {
+	} else if (address >= 0x3f00 && address <= 0x3fff) {
 		address &= 0x1f;
 		if (address == 0x10) address = 0x00;
 		if (address == 0x14) address = 0x04;
@@ -142,7 +142,7 @@ void ppu_write(uint8_t value, uint16_t address) {
 uint8_t ppu_registers_read(uint16_t address) {
 
 	uint8_t value;
-	switch(address) {
+	switch(address & 0x7) {
 
 		case 0x0:
 			printf("Reading write only register %02x\n.", address);
@@ -199,7 +199,7 @@ uint8_t ppu_registers_read(uint16_t address) {
 
 void ppu_registers_write(uint8_t value, uint16_t address) {
 
-	switch(address) {
+	switch(address & 0x7) {
 
 		case 0x0:
 			ppuctrl.nt_addr = value;
@@ -266,7 +266,7 @@ void ppu_registers_write(uint8_t value, uint16_t address) {
 		case 0x7:
 			ppudata = value;
 			ppu_write(value, v_loopy);
-			if ((scanline <= 239) & (ppumask.background | ppumask.sprites)) {
+			if ((scanline <= 239) && (ppumask.background || ppumask.sprites)) {
 				v_loopy += 33;
 
 			} else {
