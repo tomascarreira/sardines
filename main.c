@@ -17,7 +17,7 @@ int main(int argc, char* argv[argc+1]) {
 	init_ppu();
 		
 	for (size_t i = 0; i < 65; ++i) {
-		clock_cpu(cpu, bus);
+		clock_cpu();
 		++cycles;
 	}
 
