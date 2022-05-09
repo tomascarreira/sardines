@@ -1,6 +1,7 @@
 #include "common.h"
 #include "cartridge.h"
 #include "cpu.h"
+#include "ppu.h"
 
 size_t cycles = 7;
 
@@ -12,6 +13,8 @@ int main(int argc, char* argv[argc+1]) {
 
 	init_cpu();
 	init_ram();
+
+	init_ppu();
 		
 	for (size_t i = 0; i < 65; ++i) {
 		clock_cpu(cpu, bus);

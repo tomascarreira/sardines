@@ -170,6 +170,38 @@ void mapper_write(uint8_t value, uint16_t address) {
 	}	
 }
 
+uint8_t ppu_mapper_read(uint16_t address) {
+
+	uint8_t value;
+
+	switch(header.number) {
+
+		case 0:
+			value = mapper.rom[address + 0x4000 * header.prgrom];
+			break;
+
+		default:
+			printf("Mapper number %03d not supported.\n", header.number);
+			exit(EXIT_FAILURE);
+	}
+
+	return value;
+}
+
+void ppu_mapper_write(uint8_t value, uint16_t address) {
+
+	switch(header.number) {
+
+		case 0:
+			mapper.rom[address + 0x4000 * header.prgrom] = value;
+			break;
+
+		default:
+			printf("Mapper number %03d not supported.\n", header.number);
+			exit(EXIT_FAILURE);
+	}
+}
+
 uint8_t log_read_mapper(uint16_t address) {
 
 	uint8_t value;
@@ -211,4 +243,8 @@ uint8_t log_read_mapper(uint16_t address) {
 void free_mapper(void) {
 
 	free(mapper.prgram);
+}
+
+bool get_mirroring(void) {
+	return header.mirroring;
 }

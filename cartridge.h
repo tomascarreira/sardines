@@ -35,8 +35,12 @@ uint16_t get_irq_vector();
 uint16_t get_nmi_vector();
 uint8_t mapper_read(uint16_t address);
 void mapper_write(uint8_t value, uint16_t address);
+uint8_t ppu_mapper_read(uint16_t address);
+void ppu_mapper_write(uint8_t value, uint16_t address);
 uint8_t log_read_mapper(uint16_t address);
 void print_str_in_prgram(void);
 void free_mapper(void);
+
+bool get_mirroring(void);
 
 #endif

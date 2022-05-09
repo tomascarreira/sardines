@@ -1,10 +1,12 @@
 #include "common.h"
 #include "cpu.h"
+#include "ppu.h"
 #include "cartridge.h"
 #include "log.h"
 
 static nes_cpu cpu = { 0 };
 static uint8_t* ram;
+static uint8_t oamdma = 0;
 
 const size_t opcode_cycles_table[256] = {
 		7, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
@@ -110,6 +112,7 @@ uint8_t cpu_read(uint16_t address) {
 		value = ram[address & 0x7ff];
 
 	} else if (address >= 0x2000 && address <= 0x3fff) {
+		value = ppu_registers_read(address & 0x7);
 
 	} else if (address >= 0x4000 && address <= 0x401f){
 
@@ -131,10 +134,17 @@ void cpu_write(uint8_t value, uint16_t address) {
 		ram[address & 0x7ff] = value;
 
 	} else if (address >= 0x2000 && address <= 0x3fff) {
-
+		ppu_registers_write(value, address & 0x7);
 
 	} else if (address >= 0x4000 && address <= 0x401f){
+		if (address == 0x4014) {
+			oamdma = value;
+			uint8_t* page_ptr = NULL;  // TODO
+			ppu_oamdma(page_ptr);
+			cycles += cycles % 2 ? 513 : 514; // when odd cpu cycle add 1 cycle
+		} else {
 
+		}
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
 		mapper_write(value, address);
