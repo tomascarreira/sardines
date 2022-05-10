@@ -1,6 +1,7 @@
 #include "common.h"
 #include "ppu.h"
 #include "cartridge.h"
+#include "sdl.h"
 
 static nes_ppuctrl ppuctrl = { 0 };
 static nes_ppumask ppumask = { 0 };
@@ -57,6 +58,20 @@ void init_ppu() {
 
 void clock_ppu(void) {
 
+	++dot;
+	if (dot > 340) {
+		dot = 0;
+		++scanline;
+	}
+	if (scanline > 261) {
+		scanline = 0;
+		++frame;
+		
+		draw_pattern_table();
+		draw_pallets();
+	}
+
+	
 }
 
 uint8_t ppu_read(uint16_t address) {

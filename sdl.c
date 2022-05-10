@@ -1,9 +1,16 @@
 #include "common.h"
 #include "sdl.h"
+#include "ppu.h"
 #include "cartridge.h"
 
 static SDL_Window* window;
 static SDL_Renderer* renderer;
+
+static SDL_Window* pal_window;
+static SDL_Renderer* pal_renderer;
+
+static SDL_Window* pt_window;
+static SDL_Renderer* pt_renderer;
 
 nes_color pallet[64] = {
 	{84, 84, 84}, {0, 30, 116}, {8, 16, 144}, {48, 0, 136}, {68, 0, 100}, {92, 0, 48}, {84, 4, 0}, {60, 24, 0},
@@ -36,12 +43,19 @@ void init_sdl(void) {
 		printf("SDL_CreateRenderer failed: %s", SDL_GetError());
 		exit(EXIT_FAILURE);
 	}
-}
 
-void draw_pattern_table(void) {
+	pal_window = SDL_CreateWindow("Pattern Tables", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+								9*COLOR_SIZE*SCALE, 4*COLOR_SIZE*SCALE, 0);
+	if (!pal_window) {
+		printf("SDL_CreaterWindow failed: %s", SDL_GetError());
+		exit(EXIT_FAILURE);
+	}
 
-	SDL_Window* pt_window;
-	SDL_Renderer* pt_renderer;
+	pal_renderer = SDL_CreateRenderer(pal_window, -1, 0);
+	if (!pal_renderer) {
+		printf("SDL_CreateRenderer failed: %s", SDL_GetError());
+		exit(EXIT_FAILURE);
+	}
 
 	pt_window = SDL_CreateWindow("Pattern Tables", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 								256*SCALE, 128*SCALE, 0);
@@ -55,6 +69,9 @@ void draw_pattern_table(void) {
 		printf("SDL_CreateRenderer failed: %s", SDL_GetError());
 		exit(EXIT_FAILURE);
 	}
+}
+
+void draw_pattern_table(void) {
 
 	SDL_SetRenderDrawColor(pt_renderer, 0, 0, 0, 255);
 	SDL_RenderClear(pt_renderer);
@@ -65,8 +82,8 @@ void draw_pattern_table(void) {
 	for (size_t y = 0; y < 128; ++y) {
 		for (size_t x = 0; x < 128; ++x) {
 			if (!(x % 8)) {
-				lo = debug_ppu_mapper_read(y | ((x / 8) << 4) | ((y / 8) << 8));
-				hi = debug_ppu_mapper_read(y | (1 << 3) | ((x / 8) << 4) | ((y / 8) << 8));
+				lo = debug_ppu_read(y | ((x / 8) << 4) | ((y / 8) << 8));
+				hi = debug_ppu_read(y | (1 << 3) | ((x / 8) << 4) | ((y / 8) << 8));
 			}
 			
 			uint8_t index = ((lo & 0x80) >> 7) | ((hi & 0x80) >> 6);
@@ -120,6 +137,35 @@ void draw_pattern_table(void) {
 }
 
 void draw_pallets(void) {
+
+	SDL_SetRenderDrawColor(pal_renderer, 0, 0, 0, 255);
+	SDL_RenderClear(pal_renderer);
+
+	for (size_t y = 0; y < 4; ++y) {
+		for (size_t x = 0; x < 4; ++x) {
+			uint8_t index = debug_ppu_read(0x3f01 + x + (y*4));
+			
+			SDL_Rect pixel = {x*COLOR_SIZE*SCALE, y*COLOR_SIZE*SCALE, COLOR_SIZE*SCALE, COLOR_SIZE*SCALE};
+			nes_color color = pallet[index];
+			SDL_SetRenderDrawColor(pal_renderer, color.red, color.green, color.blue, 255);
+			SDL_RenderDrawRect(pal_renderer, &pixel);
+			SDL_RenderFillRect(pal_renderer, &pixel);
+		}
+	}
+
+	for (size_t y = 0; y < 4; ++y) {
+		for (size_t x = 0; x < 4; ++x) {
+			uint8_t index = debug_ppu_read(0x3f11 + x + (y*4));
+			
+			SDL_Rect pixel = {x*COLOR_SIZE*SCALE + 5*COLOR_SIZE*SCALE, y*COLOR_SIZE*SCALE, COLOR_SIZE*SCALE, COLOR_SIZE*SCALE};
+			nes_color color = pallet[index];
+			SDL_SetRenderDrawColor(pal_renderer, color.red, color.green, color.blue, 255);
+			SDL_RenderDrawRect(pal_renderer, &pixel);
+			SDL_RenderFillRect(pal_renderer, &pixel);
+		}
+	}
+
+	SDL_RenderPresent(pal_renderer);
 
 }
 

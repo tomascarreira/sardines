@@ -38,8 +38,10 @@ int main(int argc, char* argv[argc+1]) {
 					if (event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == 1) {
 						keep_looping = false;
 						break;
+					} else if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
+						SDL_DestroyWindow(SDL_GetWindowFromID(event.window.windowID));
 					}
-					
+
 				case SDL_KEYDOWN:
 					if (event.key.keysym.scancode == SDL_SCANCODE_S && !step_mode) {
 						step_mode = true;	
