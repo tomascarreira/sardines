@@ -91,7 +91,7 @@ void clock_cpu() {
 		return;
 	}
 	
-	//log_instr(cpu);
+	log_instr(cpu);
 
 	uint8_t opcode = cpu_read(cpu.pc);
 	++cpu.pc;

@@ -33,7 +33,7 @@ struct nes_ppustatus {
 };
 
 void init_ppu(void);
-void ppu_clock(void);
+void clock_ppu(void);
 uint8_t ppu_read(uint16_t address);
 void ppu_write(uint8_t value, uint16_t address);
 uint8_t ppu_registers_read(uint16_t address);

@@ -55,7 +55,7 @@ void init_ppu() {
 	}
 }
 
-void ppu_clock(void) {
+void clock_ppu(void) {
 
 }
 
