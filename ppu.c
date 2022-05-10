@@ -113,7 +113,6 @@ uint8_t ppu_read(uint16_t address) {
 				value = vram[address & 0x2cff];
 			} else {
 				printf("Something went wrong reading vram at %04x", address);
-				exit(EXIT_FAILURE);
 			}
 
 		}
@@ -153,7 +152,6 @@ void ppu_write(uint8_t value, uint16_t address) {
 				vram[address & 0x2cff] = value;
 			} else {
 				printf("Something went wrong writing vram at %04x", address);
-				exit(EXIT_FAILURE);
 			}
 
 		}
@@ -330,7 +328,6 @@ uint8_t debug_ppu_read(uint16_t address) {
 				value = vram[address & 0x2cff];
 			} else {
 				printf("Something went wrong reading vram at %04x", address);
-				exit(EXIT_FAILURE);
 			}
 
 		}

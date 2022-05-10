@@ -132,7 +132,6 @@ uint8_t mapper_read(uint16_t address) {
 
 			} else {
 				printf("Read mapper at %02x not implemented.\n", address);
-				exit(EXIT_FAILURE);
 			}
 
 			break;
@@ -155,11 +154,9 @@ void mapper_write(uint8_t value, uint16_t address) {
 
 			} else if (address >= 0x8000 && address <= 0xffff) {
 				printf("Write to PRG ROM at %02x is not legal (i think).\n", address);
-				exit(EXIT_FAILURE);
 
 			} else {
 				printf("Write mapper at %02x not implemented.\n", address);
-				exit(EXIT_FAILURE);
 			}
 
 			break;
@@ -227,7 +224,6 @@ uint8_t log_read_mapper(uint16_t address) {
 
 				} else {
 					printf("Read mapper at %02x not implemented.\n", address);
-					exit(EXIT_FAILURE);
 				}
 
 				break;
