@@ -350,11 +350,9 @@ uint8_t debug_ppu_read(uint16_t address) {
 	return value;
 }
 
-void ppu_oamdma(uint8_t* page_ptr) {
+void oam_write(uint8_t value, uint8_t address) {
 
-	for (size_t i = 0; i < 0x100; ++i) {
-		oam[oamaddr & 0xff] = page_ptr[i];
-	}
+	oam[address] = value;
 }
 
 uint8_t colapse_ppustatus(void) {
