@@ -248,7 +248,6 @@ uint8_t debug_ppu_mapper_read(uint16_t address) {
 
 		default:
 			printf("Mapper number %03d not supported.\n", header.number);
-			exit(EXIT_FAILURE);
 	}
 
 	return value;

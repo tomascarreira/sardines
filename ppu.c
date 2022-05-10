@@ -255,6 +255,7 @@ void ppu_registers_write(uint8_t value, uint16_t address) {
 			ppumask.emph_red = value >> 5;
 			ppumask.emph_green = value >> 6;
 			ppumask.emph_blue = value >> 7;
+			break;
 
 		case 0x2:
 			printf("Writing read only register %02x", address);
