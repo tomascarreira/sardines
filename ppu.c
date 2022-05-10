@@ -1,5 +1,6 @@
 #include "common.h"
 #include "ppu.h"
+#include "cpu.h"
 #include "cartridge.h"
 #include "sdl.h"
 
@@ -58,6 +59,10 @@ void init_ppu() {
 
 void clock_ppu(void) {
 
+	if (ppuctrl.nmi && ppustatus.v_blank) {
+		nmi();
+	}
+
 	++dot;
 	if (dot > 340) {
 		dot = 0;
@@ -66,9 +71,23 @@ void clock_ppu(void) {
 	if (scanline > 261) {
 		scanline = 0;
 		++frame;
-		
+	
 		draw_pattern_table();
 		draw_pallets();
+	}
+
+	if (frame % 2 && scanline == 0 && dot == 0) {
+		return;
+	}
+
+	if (scanline == 241 && dot == 1) {
+		ppustatus.v_blank = 1;
+	}
+
+	if (scanline == 261 && dot == 1) {
+		ppustatus.v_blank = 0;
+		ppustatus.spr_0hit = 0;
+		ppustatus.spr_overflow = 0;
 	}
 
 	
