@@ -18,6 +18,8 @@ int main(int argc, char* argv[argc+1]) {
 
 	init_sdl();
 
+	draw_pattern_table();
+
 	size_t i = 2;
 	bool step_mode = false;
 	bool keep_looping = true;
@@ -32,6 +34,12 @@ int main(int argc, char* argv[argc+1]) {
 					keep_looping = false;
 					break;
 
+				case SDL_WINDOWEVENT:
+					if (event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == 1) {
+						keep_looping = false;
+						break;
+					}
+					
 				case SDL_KEYDOWN:
 					if (event.key.keysym.scancode == SDL_SCANCODE_S && !step_mode) {
 						step_mode = true;	

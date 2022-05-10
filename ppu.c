@@ -276,6 +276,48 @@ void ppu_registers_write(uint8_t value, uint16_t address) {
 
 }
 
+uint8_t debug_ppu_read(uint16_t address) {
+
+	uint8_t value;
+
+	address &= 0x3fff;
+	if (address <= 0x1fff) {
+		value = debug_ppu_mapper_read(address);
+
+	} else if (address >= 2000 && address <= 0x3eff) {
+		address &= 0x2fff;
+		if (get_mirroring()) { // vertical mirroring
+			value = vram[0x27ff];
+
+		} else { // horizontal mirroring
+			if (address <= 0x27ff) {
+				value = vram[address & 0x23ff];
+			} else  if (address <= 0x2fff) {
+				value = vram[address & 0x2cff];
+			} else {
+				printf("Something went wrong reading vram at %04x", address);
+				exit(EXIT_FAILURE);
+			}
+
+		}
+
+	} else if (address >= 0x3f00 && address <= 0x3fff) {
+		address &= 0x1f;
+		if (address == 0x10) address = 0x00;
+		if (address == 0x14) address = 0x04;
+		if (address == 0x18) address = 0x08;
+		if (address == 0x1c) address = 0x0c;
+
+		value = pallet[address];
+
+	} else {
+		printf("read in address %04x not implemented.\n", address);
+		exit(EXIT_FAILURE);
+	}
+
+	return value;
+}
+
 void ppu_oamdma(uint8_t* page_ptr) {
 
 	for (size_t i = 0; i < 0x100; ++i) {
