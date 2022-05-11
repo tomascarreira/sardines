@@ -82,8 +82,8 @@ void draw_pattern_table(void) {
 	for (size_t y = 0; y < 128; ++y) {
 		for (size_t x = 0; x < 128; ++x) {
 			if (!(x % 8)) {
-				lo = debug_ppu_read(y | ((x / 8) << 4) | ((y / 8) << 8));
-				hi = debug_ppu_read(y | (1 << 3) | ((x / 8) << 4) | ((y / 8) << 8));
+				lo = debug_ppu_read((y % 8) | ((x / 8) << 4) | ((y / 8) << 8));
+				hi = debug_ppu_read((y % 8) | (1 << 3) | ((x / 8) << 4) | ((y / 8) << 8));
 			}
 			
 			uint8_t index = ((lo & 0x80) >> 7) | ((hi & 0x80) >> 6);
@@ -92,10 +92,10 @@ void draw_pattern_table(void) {
 			
 			uint8_t color;
 			switch (index) {
-				case 0: color = 0x1a; break;
-				case 1: color = 0x21; break;
-				case 2: color = 0x06; break;
-				case 3: color = 0x30; break;
+				case 0: color = 0x30; break;
+				case 1: color = 0x14; break;
+				case 2: color = 0x2c; break;
+				case 3: color = 0x1d; break;
 			}
 
 			SDL_Rect pixel = {x*SCALE, y*SCALE, SCALE, SCALE};
@@ -109,8 +109,8 @@ void draw_pattern_table(void) {
 	for (size_t y = 0; y < 128; ++y) {
 		for (size_t x = 0; x < 128; ++x) {
 			if (!(x % 8)) {
-				lo = debug_ppu_mapper_read(y | ((x / 8) << 4) | ((y / 8) << 8));
-				hi = debug_ppu_mapper_read(y | (1 << 3) | ((x / 8) << 4) | ((y / 8) << 8) | (1 << 12));
+				lo = debug_ppu_mapper_read((y % 8) | ((x / 8) << 4) | ((y / 8) << 8) | (1 << 12));
+				hi = debug_ppu_mapper_read((y % 8) | (1 << 3) | ((x / 8) << 4) | ((y / 8) << 8) | (1 << 12));
 			}
 			
 			uint8_t index = ((lo & 0x80) >> 7) | ((hi & 0x80) >> 6);
@@ -119,10 +119,10 @@ void draw_pattern_table(void) {
 			
 			uint8_t color;
 			switch (index) {
-				case 0: color = 0x1a; break;
-				case 1: color = 0x21; break;
-				case 2: color = 0x06; break;
-				case 3: color = 0x30; break;
+				case 0: color = 0x30; break;
+				case 1: color = 0x14; break;
+				case 2: color = 0x2c; break;
+				case 3: color = 0x1d; break;
 			}
 
 			SDL_Rect pixel = {(x+128)*SCALE, y*SCALE, SCALE, SCALE};
