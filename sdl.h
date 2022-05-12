@@ -2,7 +2,7 @@
 #define SDL_H
 
 #define SCALE 3
-#define COLOR_SIZE 5
+#define DEBUG_SCALE 20
 
 typedef struct nes_color nes_color;
 struct nes_color{
