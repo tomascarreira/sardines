@@ -279,7 +279,7 @@ void ppu_registers_write(uint8_t value, uint16_t address) {
 
 		case 0x4:
 			oamaddr = value;
-			ppu_write(value, oamaddr);
+			oam_write(value, oamaddr);
 			++oamaddr;
 			break;
 
