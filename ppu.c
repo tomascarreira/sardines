@@ -298,7 +298,7 @@ void ppu_registers_write(uint8_t value, uint16_t address) {
 		case 0x6:
 			ppuaddr = value;
 			if (!w_loopy) {
-				t_loopy = (t_loopy & 0x3fff) | (value << 8);
+				t_loopy = (t_loopy & 0x00ff) | (value << 8);
 				t_loopy = t_loopy & 0x7fff;
 				w_loopy ^= 1;
 			} else {
