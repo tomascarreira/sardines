@@ -1,5 +1,6 @@
 #include "common.h"
 #include "cpu.h"
+#include "ppu.h"
 #include "cartridge.h"
 #include "log.h"
 
@@ -85,6 +86,7 @@ void log_instr(nes_cpu cpu) {
 	printf("%s ", opcode_str);
 	log_addressing_mode_table[opcode](cpu);
 	printf("A:%02X X:%02X Y:%02X P:%02X SP:%02X ", cpu.a, cpu.x, cpu.y, colapse_status(), cpu.s);
+	printf("PPU:%3lu,%3lu ", get_scanline(), get_ppu_cycle());
 	printf("CYC:%lu", cycles);
 	printf("\n");
 }

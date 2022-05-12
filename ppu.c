@@ -22,9 +22,9 @@ static uint8_t* vram;
 static uint8_t* pallet;
 static uint8_t* oam;
 
-static size_t frame = 0;
+static size_t frame = 1;
 static size_t scanline = 0;
-static size_t dot = 0;
+static size_t dot = 21;
 
 void init_ppu() {
 
@@ -361,4 +361,12 @@ uint8_t colapse_ppustatus(void) {
 					(ppustatus.spr_0hit << 6) | (ppustatus.v_blank << 7);
 
 	return value;
+}
+
+size_t get_ppu_cycle(void) {
+	return dot;
+}
+
+size_t get_scanline(void) {
+	return scanline;
 }

@@ -41,5 +41,7 @@ void ppu_registers_write(uint8_t value, uint16_t address);
 uint8_t debug_ppu_read(uint16_t address);
 void oam_write(uint8_t value, uint8_t address);
 uint8_t colapse_ppustatus(void);
+size_t get_ppu_cycle(void);
+size_t get_scanline(void);
 
 #endif
