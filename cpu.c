@@ -185,7 +185,8 @@ uint8_t colapse_status() {
 void nmi() {
 
 	push(cpu.pc >> 8);
-	push(cpu.pc >> 8);
+	push(cpu.pc);
+	cpu.p.b = 2;
 	push(colapse_status(cpu));
 
 	cpu.pc = get_nmi_vector();
