@@ -115,7 +115,7 @@ uint8_t cpu_read(uint16_t address) {
 		value = ppu_registers_read(address);
 
 	} else if (address >= 0x4000 && address <= 0x401f){
-
+		value = 0;
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
 		value = mapper_read(address);
