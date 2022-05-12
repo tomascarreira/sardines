@@ -226,7 +226,7 @@ uint8_t ppu_registers_read(uint16_t address) {
 		case 0x7:
 			;
 			static uint8_t buffer;
-			if (address <= 0x3eff) {
+			if (v_loopy <= 0x3eff) {
 				value = buffer;
 				buffer = ppu_read(v_loopy);
 			} else {
