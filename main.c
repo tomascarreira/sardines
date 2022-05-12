@@ -18,8 +18,6 @@ int main(int argc, char* argv[argc+1]) {
 
 	init_sdl();
 
-	draw_pattern_table();
-
 	size_t i = 2;
 	bool step_mode = false;
 	bool keep_looping = true;
@@ -62,7 +60,7 @@ int main(int argc, char* argv[argc+1]) {
 		if (!step_mode) {
 			if (i >= 2)  {
 				clock_cpu();
-				i = 0;
+				i = -1;
 				++cycles;
 			}
 			clock_ppu();

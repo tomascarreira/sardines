@@ -59,8 +59,28 @@ void init_ppu() {
 
 void clock_ppu(void) {
 
-	if (ppuctrl.nmi && ppustatus.v_blank) {
-		nmi();
+	if (frame % 2 && scanline == 0 && dot == 0) {
+		++dot;
+		return;
+	}
+
+	if (scanline <= 239 && dot >= 1 && dot <= 256) {
+		if (dot % 9 == 0) {
+
+		}
+	}
+
+	if (scanline == 241 && dot == 1) {
+		ppustatus.v_blank = 1;
+		if (ppuctrl.nmi == 1) {
+			nmi();
+		}
+	}
+
+	if (scanline == 261 && dot == 1) {
+		ppustatus.v_blank = 0;
+		ppustatus.spr_0hit = 0;
+		ppustatus.spr_overflow = 0;
 	}
 
 	++dot;
@@ -75,22 +95,6 @@ void clock_ppu(void) {
 		draw_pattern_table();
 		draw_pallets();
 	}
-
-	if (frame % 2 && scanline == 0 && dot == 0) {
-		return;
-	}
-
-	if (scanline == 241 && dot == 1) {
-		ppustatus.v_blank = 1;
-	}
-
-	if (scanline == 261 && dot == 1) {
-		ppustatus.v_blank = 0;
-		ppustatus.spr_0hit = 0;
-		ppustatus.spr_overflow = 0;
-	}
-
-	
 }
 
 uint8_t ppu_read(uint16_t address) {
