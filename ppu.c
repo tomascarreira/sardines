@@ -88,7 +88,7 @@ void clock_ppu(void) {
 
 			uint16_t pallet_addr =((bg_shift_attr_hi >> 16) << 3) | ((bg_shift_attr_lo >> 16) << 3) | bg_pixel; 
 			uint8_t color = ppu_read(pallet_addr + 0x3f00);
-			draw_pixel(cycle, scanline, color);
+			draw_pixel(cycle - 1, scanline, color);
 		}		
 
 		if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336)) {
