@@ -117,6 +117,7 @@ void clock_ppu(void) {
 
 				case 1:
 					bg_next_tile_id = ppu_read((v_loopy & 0x0fff) | 0x2000);
+					break;
 
 				case 3:
 					bg_next_tile_attr = ppu_read((v_loopy & 0xc00) | ((v_loopy >> 4) & 0x38) | ((v_loopy >> 2) & 0x07) | 0x23c0);
