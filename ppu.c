@@ -137,7 +137,7 @@ void clock_ppu(void) {
 		}
 
 		if (cycle == 257) {
-			v_loopy = (v_loopy & 0xffe0) | (t_loopy & ~0xffe0);
+			v_loopy = (v_loopy & 0x7be0) | (t_loopy & ~0x7be0);
 		}
 	}
 
@@ -160,7 +160,7 @@ void clock_ppu(void) {
 
 	if (scanline == 261 && cycle  >= 280 && cycle <= 304) {
 	
-		v_loopy = (v_loopy & 0x0c1f) | (t_loopy & ~0x0c1f);
+		v_loopy = (v_loopy & 0x041f) | (t_loopy & ~0x041f);
 	}
 
 	++cycle;
