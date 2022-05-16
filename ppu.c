@@ -24,7 +24,7 @@ static uint8_t* oam;
 
 static size_t frame = 1;
 static size_t scanline = 0;
-static size_t dot = 21;
+static size_t cycle = 21;
 
 void init_ppu() {
 
@@ -59,33 +59,113 @@ void init_ppu() {
 
 void clock_ppu(void) {
 
-	if (frame % 2 && scanline == 0 && dot == 0) {
-		++dot;
+	static uint8_t bg_next_tile_id;
+	static uint8_t bg_next_tile_attr;
+	static uint8_t bg_next_tile_lo;
+	static uint8_t bg_next_tile_hi;
+
+	static uint16_t bg_shift_patt_lo;
+	static uint16_t bg_shift_patt_hi;
+	static uint16_t bg_shift_attr_lo;
+	static uint16_t bg_shift_attr_hi;
+
+	if (cycle == 0 && scanline == 0) {
+		clear_screen();
+	}
+
+	if (frame % 2 && scanline == 0 && cycle == 0) {
+		++cycle;
 		return;
 	}
 
-	if (scanline <= 239 && dot >= 1 && dot <= 256) {
-		if (dot % 9 == 0) {
 
+	if ((ppumask.background == 1 || ppumask.sprites == 1) && (scanline <= 230 || scanline == 261)) {
+
+		if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
+			uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - v_loopy)) & 0x0001;
+			uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - v_loopy)) & 0x0001;
+			uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
+
+			uint16_t pallet_addr =((bg_shift_attr_hi >> 16) << 3) | ((bg_shift_attr_lo >> 16) << 3) | bg_pixel; 
+			uint8_t color = ppu_read(pallet_addr + 0x3f00);
+			draw_pixel(cycle, scanline, color);
+		}		
+
+		if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336)) {
+			
+			bg_shift_patt_lo <<= 1;
+			bg_shift_patt_hi <<= 1;
+			bg_shift_attr_lo <<= 1;
+			bg_shift_attr_hi <<= 1;
+
+			switch (cycle % 8) {
+
+				case 0:
+					increment_horizontal();
+					bg_shift_patt_lo = (bg_shift_patt_lo & 0xff00) | bg_next_tile_lo;
+					bg_shift_patt_hi = (bg_shift_patt_hi & 0xff00) | bg_next_tile_hi;
+					uint8_t pal_attr = bg_next_tile_attr;
+					if (v_loopy & 0x0001) {
+						pal_attr >>= 2;
+					}
+					if (v_loopy & 0x03e0) {
+						pal_attr >>= 4;
+					}
+					bg_shift_attr_lo = ((bg_shift_attr_lo & 0xff00) | (pal_attr & 0x01) ? 0xff : 0x00);
+					bg_shift_attr_hi = ((bg_shift_attr_hi & 0xff00) | (pal_attr & 0x02) ? 0xff : 0x00);
+					break;				
+
+				case 1:
+					bg_next_tile_id = ppu_read((v_loopy & 0x0fff) | 0x2000);
+
+				case 3:
+					bg_next_tile_attr = ppu_read((v_loopy & 0xc00) | ((v_loopy >> 4) & 0x38) | ((v_loopy >> 2) & 0x07) | 0x23c0);
+					break;
+
+				case 5:
+					bg_next_tile_lo = ppu_read(ppuctrl.bck_addr  << 12 | (bg_next_tile_id << 4) | (v_loopy >> 12));
+					break;
+			
+				case 7:
+					bg_next_tile_hi = ppu_read(ppuctrl.bck_addr  << 12 | (bg_next_tile_id << 4) | (v_loopy >> 12) | 0x0008);
+					break;
+			}
+
+			if (cycle == 256) {
+				increment_vertical();
+			}
+		}
+
+		if (cycle == 257) {
+			v_loopy = (v_loopy & 0xffe0) | (t_loopy & ~0xffe0);
 		}
 	}
 
-	if (scanline == 241 && dot == 1) {
+	if (scanline == 239 && cycle == 256) {
+		present_frame();
+	}
+
+	if (scanline == 241 && cycle == 1) {
 		ppustatus.v_blank = 1;
 		if (ppuctrl.nmi == 1) {
 			nmi();
 		}
 	}
 
-	if (scanline == 261 && dot == 1) {
+	if (scanline == 261 && cycle == 1) {
 		ppustatus.v_blank = 0;
 		ppustatus.spr_0hit = 0;
 		ppustatus.spr_overflow = 0;
 	}
 
-	++dot;
-	if (dot > 340) {
-		dot = 0;
+	if (scanline == 261 && cycle  >= 280 && cycle <= 304) {
+	
+		v_loopy = (v_loopy & 0x0c1f) | (t_loopy & ~0x0c1f);
+	}
+
+	++cycle;
+	if (cycle > 340) {
+		cycle = 0;
 		++scanline;
 	}
 	if (scanline > 261) {
@@ -376,9 +456,39 @@ uint8_t colapse_ppustatus(void) {
 }
 
 size_t get_ppu_cycle(void) {
-	return dot;
+	return cycle;
 }
 
 size_t get_scanline(void) {
-	return scanline;
+	return scanline;  
+}
+
+void increment_horizontal(void) {
+
+	if ((v_loopy & 0x001f) == 31) {
+					v_loopy &= ~0x001f;
+					v_loopy ^= 0x0400;
+				} else {
+					++v_loopy;
+				}
+}
+
+void increment_vertical(void) {
+
+	if ((v_loopy & 0x7000) != 0x7000) {
+		v_loopy += 0x1000;
+	} else {
+		v_loopy &= ~0x7000;
+
+		unsigned int corse_y = (v_loopy & 0x03e0) >> 5;
+		if (corse_y == 29) {
+			corse_y = 0;
+			v_loopy ^= 0x0800;
+		} else if (corse_y == 31) {
+			corse_y = 0;
+		} else {
+			++corse_y; 
+		}
+		v_loopy = (v_loopy & ~0x03e0) | (corse_y << 5);
+	}
 }

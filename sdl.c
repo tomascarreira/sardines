@@ -32,7 +32,7 @@ void init_sdl(void) {
 	atexit(SDL_Quit);
 
 	window = SDL_CreateWindow("SardiNES", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-								300*SCALE, 256*SCALE, SDL_WINDOW_RESIZABLE);
+								256*SCALE, 240*SCALE, SDL_WINDOW_RESIZABLE);
 	if (!window) {
 		printf("SDL_CreaterWindow failed: %s", SDL_GetError());
 		exit(EXIT_FAILURE);
@@ -159,8 +159,19 @@ void draw_pallets(void) {
 
 void draw_pixel(size_t x, size_t y, uint8_t color) {
 
-	SDL_Rect pixel = {x, y, SCALE, SCALE};
+	SDL_Rect pixel = {x*SCALE, y*SCALE, SCALE, SCALE};
 	SDL_SetRenderDrawColor(renderer, pallet[color].red, pallet[color].green, pallet[color].blue, 255);
 	SDL_RenderDrawRect(renderer, &pixel);
 	SDL_RenderFillRect(renderer, &pixel);
+}
+
+void clear_screen(void) {
+
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+	SDL_RenderClear(renderer);
+}
+
+void present_frame(void) {
+
+	SDL_RenderPresent(renderer);
 }

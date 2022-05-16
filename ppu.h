@@ -43,5 +43,7 @@ void oam_write(uint8_t value, uint8_t address);
 uint8_t colapse_ppustatus(void);
 size_t get_ppu_cycle(void);
 size_t get_scanline(void);
+void increment_horizontal(void);
+void increment_vertical(void);
 
 #endif
