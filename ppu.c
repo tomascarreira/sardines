@@ -79,17 +79,7 @@ void clock_ppu(void) {
 	}
 
 
-	if ((ppumask.background == 1 || ppumask.sprites == 1) && (scanline <= 230 || scanline == 261)) {
-
-		if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
-			uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - v_loopy)) & 0x0001;
-			uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - v_loopy)) & 0x0001;
-			uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
-
-			uint16_t pallet_addr =((bg_shift_attr_hi >> 16) << 3) | ((bg_shift_attr_lo >> 16) << 3) | bg_pixel; 
-			uint8_t color = ppu_read(pallet_addr + 0x3f00);
-			draw_pixel(cycle - 1, scanline, color);
-		}		
+	if ((ppumask.background == 1 || ppumask.sprites == 1) && (scanline <= 230 || scanline == 261)) {		
 
 		if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336)) {
 			
@@ -97,6 +87,16 @@ void clock_ppu(void) {
 			bg_shift_patt_hi <<= 1;
 			bg_shift_attr_lo <<= 1;
 			bg_shift_attr_hi <<= 1;
+
+		if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
+			uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - x_loopy)) & 0x0001;
+			uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
+			uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
+
+			uint16_t pallet_addr =((bg_shift_attr_hi >> 16) << 3) | ((bg_shift_attr_lo >> 16) << 3) | bg_pixel; 
+			uint8_t color = ppu_read(pallet_addr + 0x3f00);
+			draw_pixel(cycle - 1, scanline, color);
+		}
 
 			switch (cycle % 8) {
 
