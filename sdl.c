@@ -90,7 +90,7 @@ void draw_pattern_table(void) {
 			lo <<= 1;
 			hi <<= 1;
 			
-			uint8_t index = ppu_read(0x3f10 + color);
+			uint8_t index = ppu_read(0x3f00 + color);
 
 			SDL_Rect pixel = {x*SCALE, y*SCALE, SCALE, SCALE};
 			SDL_SetRenderDrawColor(pt_renderer, pallet[index].red, pallet[index].green, pallet[index].blue, 255);
