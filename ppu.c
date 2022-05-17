@@ -92,8 +92,8 @@ void clock_ppu(void) {
 			uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - x_loopy)) & 0x0001;
 			uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
 			uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
-
-			uint16_t pallet_addr =((bg_shift_attr_hi >> 16) << 3) | ((bg_shift_attr_lo >> 16) << 3) | bg_pixel; 
+			
+			uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
 			uint8_t color = ppu_read(pallet_addr + 0x3f00);
 			draw_pixel(cycle - 1, scanline, color);
 		}
@@ -110,8 +110,9 @@ void clock_ppu(void) {
 					if (v_loopy & 0x03e0) {
 						pal_attr >>= 4;
 					}
-					bg_shift_attr_lo = ((bg_shift_attr_lo & 0xff00) | (pal_attr & 0x01) ? 0xff : 0x00);
-					bg_shift_attr_hi = ((bg_shift_attr_hi & 0xff00) | (pal_attr & 0x02) ? 0xff : 0x00);
+					
+					bg_shift_attr_lo = ((bg_shift_attr_lo & 0xff00) | ((pal_attr & 0x01) ? 0xff : 0x00));
+					bg_shift_attr_hi = ((bg_shift_attr_hi & 0xff00) | ((pal_attr & 0x02) ? 0xff : 0x00));
 					increment_horizontal();
 					break;				
 
