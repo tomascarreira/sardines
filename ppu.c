@@ -189,7 +189,7 @@ uint8_t ppu_read(uint16_t address) {
 	} else if (address >= 2000 && address <= 0x3eff) {
 		address &= 0x2fff;
 		if (get_mirroring()) { // vertical mirroring
-			value = vram[0x7ff];
+			value = vram[address & 0x7ff];
 
 		} else { // horizontal mirroring
 			if (address <= 0x23ff) {
