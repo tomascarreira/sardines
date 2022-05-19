@@ -32,7 +32,7 @@ void init_sdl(void) {
 	atexit(SDL_Quit);
 
 	window = SDL_CreateWindow("SardiNES", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-								256*SCALE, 240*SCALE, SDL_WINDOW_RESIZABLE);
+								255*SCALE, 239*SCALE, SDL_WINDOW_RESIZABLE);
 	if (!window) {
 		printf("SDL_CreaterWindow failed: %s", SDL_GetError());
 		exit(EXIT_FAILURE);
