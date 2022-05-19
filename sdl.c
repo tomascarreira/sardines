@@ -76,8 +76,8 @@ void draw_pattern_table(void) {
 	SDL_SetRenderDrawColor(pt_renderer, 0, 0, 0, 255);
 	SDL_RenderClear(pt_renderer);
 
-	uint8_t lo;
-	uint8_t hi;
+	uint8_t lo = 0;
+	uint8_t hi = 0;
 
 	for (size_t y = 0; y < 128; ++y) {
 		for (size_t x = 0; x < 128; ++x) {

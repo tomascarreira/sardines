@@ -267,7 +267,7 @@ void ppu_write(uint8_t value, uint16_t address) {
 
 uint8_t ppu_registers_read(uint16_t address) {
 
-	uint8_t value;
+	uint8_t value = 0;
 	switch(address & 0x7) {
 
 		case 0x0:
