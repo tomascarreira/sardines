@@ -160,7 +160,7 @@ void clock_ppu(void) {
 		ppustatus.spr_overflow = 0;
 	}
 
-	if (scanline == 261 && cycle  >= 280 && cycle <= 304) {
+	if (scanline == 261 && cycle  >= 280 && cycle <= 304 && (ppumask.background == 1 || ppumask.sprites == 1)) {
 	
 		v_loopy = (v_loopy & 0x041f) | (t_loopy & ~0x041f);
 	}
