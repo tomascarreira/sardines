@@ -414,13 +414,17 @@ uint8_t debug_ppu_read(uint16_t address) {
 	} else if (address >= 2000 && address <= 0x3eff) {
 		address &= 0x2fff;
 		if (get_mirroring()) { // vertical mirroring
-			value = vram[0x27ff];
+			value = vram[address & 0x7ff];
 
 		} else { // horizontal mirroring
-			if (address <= 0x27ff) {
-				value = vram[address & 0x23ff];
-			} else  if (address <= 0x2fff) {
-				value = vram[address & 0x2cff];
+			if (address <= 0x23ff) {
+				value = vram[address & 0x3ff];
+			} else  if (address <= 0x27ff) {
+				value = vram[(address & 0x3ff) + 0x400];
+			} else if (address <= 0x2bff) {
+				value = vram[address & 0x3ff];
+			} else if (address <= 0x2fff) {
+				value = vram[(address & 0x3ff) + 0x400];
 			} else {
 				printf("Something went wrong reading vram at %04x", address);
 			}
