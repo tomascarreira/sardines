@@ -70,6 +70,7 @@ void clock_ppu(void) {
 	static uint16_t bg_shift_attr_lo;
 	static uint16_t bg_shift_attr_hi;
 
+	
 	if (cycle == 0 && scanline == 0) {
 		clear_screen();
 	}
@@ -79,8 +80,7 @@ void clock_ppu(void) {
 		return;
 	}
 
-
-	if ((ppumask.background == 1 || ppumask.sprites == 1) && (scanline <= 230 || scanline == 261)) {		
+	if ((ppumask.background == 1 || ppumask.sprites == 1) && (scanline <= 239 || scanline == 261)) {		
 
 		if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336)) {
 			
@@ -89,15 +89,15 @@ void clock_ppu(void) {
 			bg_shift_attr_lo <<= 1;
 			bg_shift_attr_hi <<= 1;
 
-		if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
-			uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - x_loopy)) & 0x0001;
-			uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
-			uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
+			if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
+				uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - x_loopy)) & 0x0001;
+				uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
+				uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
 			
-			uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
-			uint8_t color = ppu_read(pallet_addr + 0x3f00);
-			draw_pixel(cycle - 1, scanline, color);
-		}
+				uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
+				uint8_t color = ppu_read(pallet_addr + 0x3f00);
+				draw_pixel(cycle - 1, scanline, color);
+			}
 
 			switch (cycle % 8) {
 
@@ -142,28 +142,26 @@ void clock_ppu(void) {
 		if (cycle == 257) {
 			v_loopy = (v_loopy & 0x7be0) | (t_loopy & ~0x7be0);
 		}
-	}
-
-	if (scanline == 239 && cycle == 256) {
-		present_frame();
-	}
-
-	if (scanline == 241 && cycle == 1) {
+	
+	} else if (scanline == 241 && cycle == 1) {
 		ppustatus.v_blank = 1;
 		if (ppuctrl.nmi == 1) {
 			nmi();
 		}
-	}
 
-	if (scanline == 261 && cycle == 1) {
+	} else if (scanline == 261 && cycle == 1) {
 		ppustatus.v_blank = 0;
 		ppustatus.spr_0hit = 0;
 		ppustatus.spr_overflow = 0;
-	}
-
-	if (scanline == 261 && cycle  >= 280 && cycle <= 304 && (ppumask.background == 1 || ppumask.sprites == 1)) {
+	
+	} else if (scanline == 261 && cycle  >= 280 && cycle <= 304 && (ppumask.background == 1 || ppumask.sprites == 1)) {
 	
 		v_loopy = (v_loopy & 0x041f) | (t_loopy & ~0x041f);
+	}
+
+	if (scanline == 239 && cycle == 256) {
+		present_frame();
+	
 	}
 
 	++cycle;
@@ -185,7 +183,14 @@ uint8_t ppu_read(uint16_t address) {
 	uint8_t value;
 
 	address &= 0x3fff;
-	if (address <= 0x1fff) {
+	if (address >= 0x3f00 && address <= 0x3fff) {
+		address &= 0x1f;
+		if ((address & 0x13) == 0x10) {
+			address &= 0x0f;
+		}
+		value = pallet[address];
+
+	} else if (address <= 0x1fff) {
 		value = ppu_mapper_read(address);
 
 	} else if (address >= 2000 && address <= 0x3eff) {
@@ -208,15 +213,6 @@ uint8_t ppu_read(uint16_t address) {
 
 		}
 
-	} else if (address >= 0x3f00 && address <= 0x3fff) {
-		address &= 0x1f;
-		if (address == 0x10) address = 0x00;
-		if (address == 0x14) address = 0x04;
-		if (address == 0x18) address = 0x08;
-		if (address == 0x1c) address = 0x0c;
-
-		value = pallet[address];
-
 	} else {
 		printf("read in address %04x not implemented.\n", address);
 		exit(EXIT_FAILURE);
@@ -228,10 +224,7 @@ uint8_t ppu_read(uint16_t address) {
 void ppu_write(uint8_t value, uint16_t address) {
 
 	address &= 0x3fff;
-	if (address <= 0x1fff) {
-		ppu_mapper_write(value, address);
-
-	} else if (address >= 0x2000 && address <= 0x3eff) {
+	if (address >= 0x2000 && address <= 0x3eff) {
 		address &= 0x2fff;
 		if (get_mirroring()) { // vertical mirroring
 			vram[address & 0x7ff] = value;
@@ -251,13 +244,14 @@ void ppu_write(uint8_t value, uint16_t address) {
 
 		}
 
+	} else if (address <= 0x1fff) {
+		ppu_mapper_write(value, address);
+
 	} else if (address >= 0x3f00 && address <= 0x3fff) {
 		address &= 0x1f;
-		if (address == 0x10) address = 0x00;
-		if (address == 0x14) address = 0x04;
-		if (address == 0x18) address = 0x08;
-		if (address == 0x1c) address = 0x0c;
-
+		if ((address & 0x13) == 0x10) {
+			address &= 0x0f;
+		}
 		pallet[address] = value;
 
 	} else {
