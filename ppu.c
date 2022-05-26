@@ -35,8 +35,9 @@ void init_ppu() {
 	ppudata = 0;
 	t_loopy = 0;
 	v_loopy = 0;
-	w_loopy = 0;
-	x_loopy = false;
+	x_loopy = 0;
+	w_loopy = false;
+
 
 	vram = calloc(0x800, 1);
 	if (!vram) {
