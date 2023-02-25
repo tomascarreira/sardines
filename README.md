@@ -24,4 +24,4 @@ A nes emulator writter in C.
 
 ## Usage
 
-`./sardines *nes-rom.nes`
+`./sardines *nes-rom.nes*`
