@@ -1,6 +1,10 @@
 #ifndef CARTRIDGE_H
 #define CARTRIDGE_H
 
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+
 #define HEADER_SIZE 16
 #define TRAINER_SIZE 512
 
@@ -30,9 +34,9 @@ struct nes_header {
 uint8_t* read_rom(char* file_name);
 void parse_header(uint8_t* rom);
 void init_mapper(uint8_t* rom);
-uint16_t get_reset_vector();
-uint16_t get_irq_vector();
-uint16_t get_nmi_vector();
+uint16_t get_reset_vector(void);
+uint16_t get_irq_vector(void);
+uint16_t get_nmi_vector(void);
 uint8_t mapper_read(uint16_t address);
 void mapper_write(uint8_t value, uint16_t address);
 uint8_t ppu_mapper_read(uint16_t address);
@@ -44,3 +48,4 @@ void free_mapper(void);
 bool get_mirroring(void);
 
 #endif
+

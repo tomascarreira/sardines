@@ -1,6 +1,9 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include <stdlib.h>
+#include <stdint.h>
+
 #define STACK_POINTER 0xfd
 #define STACK_PAGE 0x100
 #define XAA_CONST 0xff // chip and/or temperature dependent used only for ilegal opcode xaa
@@ -23,21 +26,21 @@ struct nes_cpu {
 	} p;
 };
 
-void init_cpu();
-void init_ram();
-void clock_cpu();
+void init_cpu(void);
+void init_ram(void);
+void clock_cpu(void);
 uint8_t cpu_read(uint16_t address);
 void cpu_write(uint8_t value, uint16_t address);
 
 uint8_t log_read_ram(uint16_t address);
 
 void push(uint8_t element);
-uint8_t pop();
-uint8_t colapse_status();
+uint8_t pop(void);
+uint8_t colapse_status(void);
 
-void nmi();
-void irq();
-void reset();
+void nmi(void);
+void irq(void);
+void reset(void);
 
 void free_ram(void);
 
@@ -136,3 +139,4 @@ size_t tas(uint16_t address);
 size_t xaa(uint16_t address);
 
 #endif
+

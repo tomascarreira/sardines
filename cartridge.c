@@ -83,7 +83,7 @@ void init_mapper(uint8_t* rom) {
 	}
 }
 
-uint16_t get_reset_vector() {
+uint16_t get_reset_vector(void) {
 
 	uint8_t lo = cpu_read(0xfffc);
 	uint8_t hi = cpu_read(0xfffd);
@@ -91,7 +91,7 @@ uint16_t get_reset_vector() {
 	return (hi << 8) | lo;
 }
 
-uint16_t get_irq_vector() {
+uint16_t get_irq_vector(void) {
 
 	uint8_t lo = cpu_read(0xfffe);
 	uint8_t hi = cpu_read(0xffff);
@@ -99,7 +99,7 @@ uint16_t get_irq_vector() {
 	return (hi << 8) | lo;
 }
 
-uint16_t get_nmi_vector() {
+uint16_t get_nmi_vector(void) {
 
 	uint8_t lo = cpu_read(0xfffa);
 	uint8_t hi = cpu_read(0xfffb);
@@ -261,3 +261,4 @@ void free_mapper(void) {
 bool get_mirroring(void) {
 	return header.mirroring;
 }
+

@@ -1,6 +1,9 @@
 #ifndef SDL_H
 #define SDL_H
 
+#include <stdlib.h>
+#include <stdint.h>
+
 #define SCALE 3
 #define DEBUG_SCALE 20
 
@@ -19,3 +22,4 @@ void clear_screen(void);
 void present_frame(void);
 
 #endif
+

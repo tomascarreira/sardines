@@ -26,7 +26,7 @@ static size_t frame = 1;
 static size_t scanline = 0;
 static size_t cycle = 21;
 
-void init_ppu() {
+void init_ppu(void) {
 
 	oamaddr = 0;
 	oamdata = 0;

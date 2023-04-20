@@ -236,3 +236,4 @@ void log_izy(nes_cpu cpu) {
 	printf("($%02X),Y = %04X @ %04X = %02X  ",
 		zp_ptr, (hi << 8) | lo, tmp, log_read(tmp));
 }
+

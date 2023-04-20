@@ -1,6 +1,9 @@
 #ifndef PPU_H
 #define PPU_H
 
+#include <stdlib.h>
+#include <stdint.h>
+
 typedef struct nes_ppuctrl nes_ppuctrl;
 struct nes_ppuctrl {
 	uint8_t nt_addr:2;
@@ -47,3 +50,4 @@ void increment_horizontal(void);
 void increment_vertical(void);
 
 #endif
+

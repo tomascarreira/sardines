@@ -67,7 +67,7 @@ size_t (*opcode_table[256])(uint16_t) = {
 		beq, sbc, kil, isc, nop, sbc, inc, isc, sed, sbc, nop, isc, nop, sbc, inc, isc
 };
 
-void init_cpu() {
+void init_cpu(void) {
 	
 	cpu.s = STACK_POINTER;
 	cpu.p.i = 1;
@@ -84,7 +84,7 @@ void init_ram(void) {
 	}
 }
 
-void clock_cpu() {
+void clock_cpu(void) {
 	
 	static size_t instr_clocks;
 
@@ -168,7 +168,7 @@ void push(uint8_t element) {
 	--cpu.s;
 }
 
-uint8_t pop() {
+uint8_t pop(void) {
 
 	++cpu.s;
 	uint8_t element = cpu_read(STACK_PAGE + cpu.s);
@@ -176,7 +176,7 @@ uint8_t pop() {
 	return element;
 }
 
-uint8_t colapse_status() {
+uint8_t colapse_status(void) {
 	
 	uint8_t status = cpu.p.c | (cpu.p.z << 1) | (cpu.p.i << 2) | (cpu.p.d << 3) | 
 					(cpu.p.b << 4) | (cpu.p.v << 6) | (cpu.p.n << 7);
@@ -184,26 +184,26 @@ uint8_t colapse_status() {
 	return status;
 }
 
-void nmi() {
+void nmi(void) {
 
 	push(cpu.pc >> 8);
 	push(cpu.pc);
 	cpu.p.b = 2;
-	push(colapse_status(cpu));
+	push(colapse_status());
 
 	cpu.pc = get_nmi_vector();
 }
 
-void irq() {
+void irq(void) {
 
 	push(cpu.pc >> 8);
 	push(cpu.pc >> 8);
-	push(colapse_status(cpu));
+	push(colapse_status());
 
 	cpu.pc = get_irq_vector();
 }
 
-void reset() {
+void reset(void) {
 
 	cpu.s -= 3;
 	cpu.p.i = 1;
@@ -794,7 +794,7 @@ size_t php(uint16_t address) {
 	uint8_t b_flag = cpu.p.b;
 
 	cpu.p.b = 3;	
-	push(colapse_status(cpu));
+	push(colapse_status());
 	cpu.p.b = b_flag;
 	
 	return 0;
@@ -802,7 +802,7 @@ size_t php(uint16_t address) {
 
 size_t pla(uint16_t address) {
 	
-	cpu.a = pop(cpu);
+	cpu.a = pop();
 
 	cpu.p.z = cpu.a == 0;
 	cpu.p.n = cpu.a >> 7;
@@ -812,7 +812,7 @@ size_t pla(uint16_t address) {
 
 size_t plp(uint16_t address) {
 	
-	uint8_t status = pop(cpu);
+	uint8_t status = pop();
 	cpu.p.c = status;
 	cpu.p.z = status >> 1;
 	cpu.p.i = status >> 2;
@@ -879,7 +879,7 @@ size_t ror_a(uint16_t address) {
 
 size_t rti(uint16_t address) {
 	
-	uint8_t status = pop(cpu);
+	uint8_t status = pop();
 	cpu.p.c = status;
 	cpu.p.z = status >> 1;
 	cpu.p.i = status >> 2;
@@ -887,8 +887,8 @@ size_t rti(uint16_t address) {
 	cpu.p.v = status >> 6;
 	cpu.p.n = status >> 7;
 
-	uint8_t lo = pop(cpu);
-	uint8_t hi = pop(cpu);
+	uint8_t lo = pop();
+	uint8_t hi = pop();
 
 	cpu.pc = (hi << 8) | lo;
 	
@@ -897,8 +897,8 @@ size_t rti(uint16_t address) {
 
 size_t rts(uint16_t address) {
 	
-	uint8_t lo = pop(cpu);
-	uint8_t hi = pop(cpu);
+	uint8_t lo = pop();
+	uint8_t hi = pop();
 
 	cpu.pc = (hi << 8) | lo;
 	++cpu.pc;
@@ -1206,3 +1206,4 @@ size_t xaa(uint16_t address) {
 	
 	return 0;
 }
+

@@ -175,3 +175,4 @@ void present_frame(void) {
 
 	SDL_RenderPresent(renderer);
 }
+
