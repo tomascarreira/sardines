@@ -1,0 +1,104 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wpedantic",
+      "-g",
+      "-I/usr/include/SDL2",
+      "-D_REENTRANT",
+      "-c",
+      "-o",
+      "cartridge.o",
+      "cartridge.c"
+    ],
+    "directory": "/home/tomas/programming/sardines",
+    "file": "/home/tomas/programming/sardines/cartridge.c",
+    "output": "/home/tomas/programming/sardines/cartridge.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wpedantic",
+      "-g",
+      "-I/usr/include/SDL2",
+      "-D_REENTRANT",
+      "-c",
+      "-o",
+      "main.o",
+      "main.c"
+    ],
+    "directory": "/home/tomas/programming/sardines",
+    "file": "/home/tomas/programming/sardines/main.c",
+    "output": "/home/tomas/programming/sardines/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wpedantic",
+      "-g",
+      "-I/usr/include/SDL2",
+      "-D_REENTRANT",
+      "-c",
+      "-o",
+      "cpu.o",
+      "cpu.c"
+    ],
+    "directory": "/home/tomas/programming/sardines",
+    "file": "/home/tomas/programming/sardines/cpu.c",
+    "output": "/home/tomas/programming/sardines/cpu.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wpedantic",
+      "-g",
+      "-I/usr/include/SDL2",
+      "-D_REENTRANT",
+      "-c",
+      "-o",
+      "ppu.o",
+      "ppu.c"
+    ],
+    "directory": "/home/tomas/programming/sardines",
+    "file": "/home/tomas/programming/sardines/ppu.c",
+    "output": "/home/tomas/programming/sardines/ppu.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wpedantic",
+      "-g",
+      "-I/usr/include/SDL2",
+      "-D_REENTRANT",
+      "-c",
+      "-o",
+      "sdl.o",
+      "sdl.c"
+    ],
+    "directory": "/home/tomas/programming/sardines",
+    "file": "/home/tomas/programming/sardines/sdl.c",
+    "output": "/home/tomas/programming/sardines/sdl.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wpedantic",
+      "-g",
+      "-I/usr/include/SDL2",
+      "-D_REENTRANT",
+      "-c",
+      "-o",
+      "log.o",
+      "log.c"
+    ],
+    "directory": "/home/tomas/programming/sardines",
+    "file": "/home/tomas/programming/sardines/log.c",
+    "output": "/home/tomas/programming/sardines/log.o"
+  }
+]
