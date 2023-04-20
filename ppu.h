@@ -35,6 +35,25 @@ struct nes_ppustatus {
 	uint8_t v_blank:1;
 };
 
+typedef struct spr_attr spr_attr;
+struct spr_attr {
+	uint8_t pallet:2;
+	uint8_t unimplemented:3;
+	uint8_t priority:1;
+	uint8_t flip_h:1;
+	uint8_t flip_v:1;
+};
+
+typedef struct sprite sprite;
+struct sprite {
+	uint8_t top_y_pos;
+	uint8_t tile_idx;
+	spr_attr attributes;
+	uint8_t left_x_pos;
+};
+
+// The three unimplemented bits of each sprite's byte 2 do not exist in the PPU and always read back as 0 on PPU revisions that allow reading PPU OAM through OAMDATA ($2004). This can be emulated by ANDing byte 2 with $E3 either when writing to or when reading from OAM. from nesdev.org
+
 void init_ppu(void);
 void clock_ppu(void);
 uint8_t ppu_read(uint16_t address);

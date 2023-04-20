@@ -3,6 +3,9 @@
 #include "cpu.h"
 #include "cartridge.h"
 #include "sdl.h"
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
 static nes_ppuctrl ppuctrl = { 0 };
 static nes_ppumask ppumask = { 0 };
@@ -20,7 +23,10 @@ static bool w_loopy;
 
 static uint8_t* vram;
 static uint8_t* pallet;
-static uint8_t* oam;
+static sprite* oam;
+static sprite* secondary_oam;
+
+static size_t secondary_oam_idx;
 
 static size_t frame = 1;
 static size_t scanline = 0;
@@ -45,9 +51,15 @@ void init_ppu(void) {
 		exit(EXIT_FAILURE);
 	}
 
-	oam = calloc(0x100, 1);
+	oam = calloc(64, sizeof(sprite));
 	if (!oam) {
 		perror("oam calloc failed.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	secondary_oam = calloc(8, sizeof(sprite));
+	if (!secondary_oam) {
+		perror("secondary oam calloc failed.\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -154,9 +166,22 @@ void clock_ppu(void) {
 		ppustatus.spr_0hit = 0;
 		ppustatus.spr_overflow = 0;
 	
-	} else if (scanline == 261 && cycle  >= 280 && cycle <= 304 && (ppumask.background == 1 || ppumask.sprites == 1)) {
+	} else if (scanline == 261 && cycle >= 280 && cycle <= 304 && (ppumask.background == 1 || ppumask.sprites == 1)) {
 	
 		v_loopy = (v_loopy & 0x041f) | (t_loopy & ~0x041f);
+	}
+
+	// Sprite Evaluation
+	if ((scanline >= 0 && scanline <= 239)) {
+		if (cycle == 1) {
+			memset(secondary_oam, 0xff, 8*sizeof(sprite));
+		}
+
+		if (cycle >= 65 && cycle <= 256) {
+			if (cycle % 2 == 0) {
+
+			}
+		}
 	}
 
 	if (scanline == 239 && cycle == 256) {
@@ -286,7 +311,23 @@ uint8_t ppu_registers_read(uint16_t address) {
 			break;
 
 		case 0x4:
-			value = oam[oamaddr];
+			// Read 2004 in cycles 1 to 64 return 0xff
+			if (cycle >= 1 && cycle <= 64 && scanline <= 239) {
+				value = 0xff;
+			} else {
+				uint8_t oam_address = oamaddr / 4;
+				switch (oamaddr % 3) {
+					case 0: value = oam[oam_address].top_y_pos; break;
+					case 1: value = oam[oam_address].tile_idx; break;
+					case 3: value = oam[oam_address].left_x_pos; break;
+					case 2:
+						value = oam[oam_address].attributes.pallet;
+						value += (oam[oam_address].attributes.priority << 5);
+						value += (oam[oam_address].attributes.flip_h << 6);
+						value += (oam[oam_address].attributes.flip_v << 7);
+				}
+			}
+
 			if (scanline < 240) {
 				++oamaddr;
 			}
@@ -355,7 +396,6 @@ void ppu_registers_write(uint8_t value, uint16_t address) {
 			break;
 
 		case 0x4:
-			oamaddr = value;
 			oam_write(value, oamaddr);
 			++oamaddr;
 			break;
@@ -445,7 +485,20 @@ uint8_t debug_ppu_read(uint16_t address) {
 
 void oam_write(uint8_t value, uint8_t address) {
 
-	oam[address] = value;
+	uint8_t oam_address = address / 4;
+	
+	switch (address % 3) {
+		case 0: oam[oam_address].top_y_pos = value; break;
+		case 1: oam[oam_address].tile_idx = value; break;
+		case 3: oam[oam_address].left_x_pos = value; break;
+		case 2: 
+			oam[oam_address].attributes.pallet = value;
+			oam[oam_address].attributes.unimplemented = 0;
+			oam[oam_address].attributes.priority = value << 5;
+			oam[oam_address].attributes.flip_h = value << 6;
+			oam[oam_address].attributes.flip_v = value << 7;
+			break;
+	}
 }
 
 uint8_t colapse_ppustatus(void) {
