@@ -168,16 +168,15 @@ void clock_ppu(void) {
 	if (scanline >= 0 && scanline <= 239 && (ppumask.sprites || ppumask.background)) {
 		// setup the secondary_oam
 		if (cycle == 1) {
-			memset(secondary_oam, 0xff, 8*sizeof(sprite));
+			memset(secondary_oam, 0xff, SECONDARY_OAM_SPRITE_NUMBER*sizeof(sprite));
 			ppustatus.spr_overflow = 0;
 			sec_oam_len = 0;
 		}
 
 		// Populate the secondary_oam
 		if (cycle == 65) {
-
 			for (size_t i = 0; i < OAM_SPRITE_NUMBER; ++i) {
-				if (sec_oam_len <= 8) {
+				if (sec_oam_len < 8) {
 					if (sprite_in_scanline(scanline, oam[i].top_y_pos)) {
 						secondary_oam[sec_oam_len] = oam[i];
 						++sec_oam_len;
