@@ -50,7 +50,6 @@ void init_ppu(void) {
 	x_loopy = 0;
 	w_loopy = false;
 
-
 	vram = calloc(0x800, 1);
 	if (!vram) {
 		perror("vram calloc failed.\n");
