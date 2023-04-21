@@ -33,6 +33,8 @@ static size_t sec_oam_len = 0;
 static uint8_t spr_tile_data[SECONDARY_OAM_SPRITE_NUMBER][2] = { 0 };
 static uint8_t spr_attr_data[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
 static uint8_t spr_x_counter[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
+static int spr_active[SECONDARY_OAM_SPRITE_NUMBER][2] = { 0 };
+static size_t spr_active_len = 0;
 
 static size_t frame = 1;
 static size_t scanline = 0;
@@ -85,6 +87,7 @@ void clock_ppu(void) {
 		return;
 	}
 
+	// Rendering
 	if ((ppumask.background == 1 || ppumask.sprites == 1) && (scanline <= 239 || scanline == 261)) {		
 
 		if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336)) {
@@ -99,8 +102,64 @@ void clock_ppu(void) {
 				uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
 				uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
 			
-				uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
-				uint8_t color = ppu_read(pallet_addr + 0x3f00);
+
+				// Im decrementing x counter after checking for zero
+				// because if the value start at zero it will loop to // MAX UINT8 (255) and will not be drawn
+
+				uint8_t spr_pixel = 0;
+				uint8_t spr_pallete = 0;
+
+				for (size_t i = 0; i < sec_oam_len; ++i) {
+					if (!spr_x_counter[i]) {
+						spr_active[spr_active_len][0] = i;
+						spr_active[spr_active_len][1] = 0;
+						++spr_active_len;
+						// max value so it does not go active again
+						spr_x_counter[i] = 0xff;
+					}
+
+					--spr_x_counter[i];
+				}
+
+				for (size_t i = 0; i < spr_active_len; ++i) {
+					int idx = spr_active[i][0];
+					if (idx >= 0) {
+						uint8_t top_tile_pix = spr_tile_data[idx][0] >> 7;
+						uint8_t bot_tile_pix = spr_tile_data[idx][1] >> 7;
+
+						// Improvement: Send an sprite type instead
+						uint8_t spr_attr = spr_attr_data[idx];
+						spr_pallete = spr_attr & 0x3;
+						uint8_t spr_priority = (spr_attr >> 5) & 0x1;
+						uint8_t spr_flip_h = (spr_attr >> 6) & 0x1;
+						uint8_t spr_flip_v = (spr_attr >> 7) & 0x1;
+
+						spr_pixel = (bot_tile_pix << 1) + top_tile_pix;
+
+						spr_tile_data[idx][0] <<= 1;
+						spr_tile_data[idx][1] <<= 1;
+						++spr_active[i][1];
+
+						if (spr_active[i][1] >= 8) {
+							spr_active[i][0] = -1;
+						}
+
+						if (spr_pixel) {
+							break;
+						}
+					}
+				}
+				
+				uint8_t color;
+				// Improvement: Function to get address for colour
+				if (spr_pixel) {
+					uint16_t pallet_addr = spr_pixel + (spr_pallete << 2) + (1 << 4);
+					color = ppu_read(pallet_addr + 0x3f00);	
+				} else {
+					uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
+					color = ppu_read(pallet_addr + 0x3f00);
+				}
+
 				draw_pixel(cycle - 1, scanline, color);
 			}
 
