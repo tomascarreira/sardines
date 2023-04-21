@@ -528,7 +528,7 @@ void oam_write(uint8_t value, uint8_t address) {
 
 	uint8_t oam_address = address / 4;
 	
-	switch (address % 3) {
+	switch (address % 4) {
 		case 0: oam[oam_address].top_y_pos = value; break;
 		case 1: oam[oam_address].tile_idx = value; break;
 		case 3: oam[oam_address].left_x_pos = value; break;
