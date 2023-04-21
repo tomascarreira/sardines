@@ -5,6 +5,7 @@
 #include "sdl.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include <sys/types.h>
@@ -625,4 +626,26 @@ uint8_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_offs
 	}
 
 	return res;
+}
+
+void debug_oam(void) {
+	printf("oam:\n");
+	for (size_t i = 0; i < OAM_SPRITE_NUMBER; ++i) {
+		printf("%02x %02x %02x %02x\n", 
+		 oam[i].top_y_pos,
+		 oam[i].tile_idx,
+		 spr_attr_to_byte(oam[i].attributes),
+		 oam[i].left_x_pos);
+	}
+}
+
+void debug_secondary_oam(void) {
+	printf("secondary oam:\n");
+	for (size_t i = 0; i < sec_oam_len; ++i) {
+		printf("%02x %02x %02x %02x\n", 
+		 secondary_oam[i].top_y_pos,
+		 secondary_oam[i].tile_idx,
+		 spr_attr_to_byte(secondary_oam[i].attributes),
+		 secondary_oam[i].left_x_pos);
+	}
 }

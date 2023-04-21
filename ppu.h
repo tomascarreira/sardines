@@ -75,6 +75,8 @@ void increment_vertical(void);
 bool sprite_in_scanline(size_t scanline, uint8_t spr_y_pos);
 uint8_t spr_attr_to_byte(spr_attr attr);
 uint8_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_offset, uint plane, uint spr_size);
+void debug_oam(void);
+void debug_secondary_oam(void);
 
 #endif
 
