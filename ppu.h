@@ -3,6 +3,10 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
+
+#define OAM_SPRITE_NUMBER 64
+#define SECONDARY_OAM_SPRITE_NUMBER 8
 
 typedef struct nes_ppuctrl nes_ppuctrl;
 struct nes_ppuctrl {
@@ -67,6 +71,10 @@ size_t get_ppu_cycle(void);
 size_t get_scanline(void);
 void increment_horizontal(void);
 void increment_vertical(void);
+
+bool sprite_in_scanline(size_t scanline, uint8_t spr_y_pos);
+uint8_t spr_attr_to_byte(spr_attr attr);
+uint8_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_offset, uint plane, uint spr_size);
 
 #endif
 

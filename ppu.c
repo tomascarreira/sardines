@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
+#include <sys/types.h>
 
 static nes_ppuctrl ppuctrl = { 0 };
 static nes_ppumask ppumask = { 0 };
@@ -23,10 +25,13 @@ static bool w_loopy;
 
 static uint8_t* vram;
 static uint8_t* pallet;
-static sprite* oam;
-static sprite* secondary_oam;
+static sprite oam[OAM_SPRITE_NUMBER] = { 0 };
+static sprite secondary_oam[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
+static size_t sec_oam_len = 0;
 
-static size_t secondary_oam_idx;
+static uint8_t spr_tile_data[SECONDARY_OAM_SPRITE_NUMBER][2] = { 0 };
+static uint8_t spr_attr_data[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
+static uint8_t spr_x_counter[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
 
 static size_t frame = 1;
 static size_t scanline = 0;
@@ -48,18 +53,6 @@ void init_ppu(void) {
 	vram = calloc(0x800, 1);
 	if (!vram) {
 		perror("vram calloc failed.\n");
-		exit(EXIT_FAILURE);
-	}
-
-	oam = calloc(64, sizeof(sprite));
-	if (!oam) {
-		perror("oam calloc failed.\n");
-		exit(EXIT_FAILURE);
-	}
-
-	secondary_oam = calloc(8, sizeof(sprite));
-	if (!secondary_oam) {
-		perror("secondary oam calloc failed.\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -172,14 +165,66 @@ void clock_ppu(void) {
 	}
 
 	// Sprite Evaluation
-	if ((scanline >= 0 && scanline <= 239)) {
+	if (scanline >= 0 && scanline <= 239 && (ppumask.sprites || ppumask.background)) {
+		// setup the secondary_oam
 		if (cycle == 1) {
 			memset(secondary_oam, 0xff, 8*sizeof(sprite));
+			ppustatus.spr_overflow = 0;
+			sec_oam_len = 0;
 		}
 
-		if (cycle >= 65 && cycle <= 256) {
-			if (cycle % 2 == 0) {
+		// Populate the secondary_oam
+		if (cycle == 65) {
 
+			for (size_t i = 0; i < OAM_SPRITE_NUMBER; ++i) {
+				if (sec_oam_len <= 8) {
+					if (sprite_in_scanline(scanline, oam[i].top_y_pos)) {
+						secondary_oam[sec_oam_len] = oam[i];
+						++sec_oam_len;
+					}
+				} else {
+					// Handle sprite overflow flag (that is broken on the real hardware)
+					// I will implement the correct way beause i dont understant yet 
+					// how m behaves if it overflow >3. m is from the nesdev wiki
+					if (sprite_in_scanline(scanline, oam[i].top_y_pos)) {
+						ppustatus.spr_overflow = 1;
+					}
+				}
+			}
+		}
+
+		// put sprite information ready for next scanline
+		if (cycle == 257) {
+			for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
+				if (i >= sec_oam_len) {
+					// What to put in the sifht registers and latches for the empty slots ??
+					// For now i will just use sec_oam_len in the redering fase 
+				} else if (ppuctrl.spr_size) {
+					sprite spr = secondary_oam[i];
+					uint8_t pt_section = spr.tile_idx & 0x1;
+					uint8_t tile_idx = spr.tile_idx >> 1;
+					// scanline is always bigger or equal to top_y_pos.
+					// Because if top_y_pos was bigger this sprite would
+					// never be in secondary_oam
+					assert(scanline >= spr.top_y_pos);
+					uint8_t y_offset = scanline - spr.top_y_pos;
+					spr_tile_data[i][0] = pattern_table_encode_address(tile_idx, pt_section, y_offset, 0, 16);
+					spr_tile_data[i][1] = pattern_table_encode_address(tile_idx, pt_section, y_offset, 1, 16);
+					spr_attr_data[i] = spr_attr_to_byte(spr.attributes);
+					spr_x_counter[i] = spr.left_x_pos;
+				} else {
+					sprite spr = secondary_oam[i];
+					uint8_t tile_idx = spr.tile_idx;
+					// scanline is always bigger or equal to top_y_pos.
+					// Because if top_y_pos was bigger this sprite would
+					// never be in secondary_oam
+					assert(scanline >= spr.top_y_pos);
+					uint8_t y_offset = scanline - spr.top_y_pos;
+					spr_tile_data[i][0] = pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 0, 8);
+					spr_tile_data[i][1] = pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 1, 8);
+					spr_attr_data[i] = spr_attr_to_byte(spr.attributes);
+					spr_x_counter[i] = spr.left_x_pos;
+				}
 			}
 		}
 	}
@@ -319,12 +364,8 @@ uint8_t ppu_registers_read(uint16_t address) {
 				switch (oamaddr % 3) {
 					case 0: value = oam[oam_address].top_y_pos; break;
 					case 1: value = oam[oam_address].tile_idx; break;
+					case 2: value = spr_attr_to_byte(oam[oam_address].attributes); break;
 					case 3: value = oam[oam_address].left_x_pos; break;
-					case 2:
-						value = oam[oam_address].attributes.pallet;
-						value += (oam[oam_address].attributes.priority << 5);
-						value += (oam[oam_address].attributes.flip_h << 6);
-						value += (oam[oam_address].attributes.flip_v << 7);
 				}
 			}
 
@@ -545,4 +586,44 @@ void increment_vertical(void) {
 		}
 		v_loopy = (v_loopy & ~0x03e0) | (corse_y << 5);
 	}
+}
+
+bool sprite_in_scanline(size_t scanline, uint8_t spr_y_pos) {
+	return scanline >= spr_y_pos && scanline < spr_y_pos + (8 + ppuctrl.spr_size * 8);
+}
+
+uint8_t spr_attr_to_byte(spr_attr attr) {
+	uint8_t res = 0;
+	res += attr.pallet;
+	res += attr.priority << 5;
+	res += attr.flip_h << 6;
+	res += attr.flip_v << 7;
+
+	return res;
+}
+
+// 0S RRRC CCCP YYYY => maybe a formula for the address in the vram for 8x16 tiles
+// S is the section in the pattern table
+// R is the row of the tile
+// C is the column of the tile
+// P is plane inside of the tile (0 for the first, 1 for the second)
+// Y is the row inside the tile
+uint8_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_offset, uint plane, uint spr_size) {
+	uint16_t res = 0;
+
+	if (spr_size == 16) {
+		res += y_offset;
+		res += plane << 4;
+		res += (tile_idx & 0xf) << 5;
+		res += (tile_idx >> 4) << 9;
+		res += section << 12;
+	} else {
+		res += y_offset;
+		res += plane << 3;
+		res += (tile_idx & 0xf) << 4;
+		res += (tile_idx >> 4) << 8;
+		res += section << 12;
+	}
+
+	return res;
 }
