@@ -303,6 +303,7 @@ void clock_ppu(void) {
 	
 		draw_pattern_table();
 		draw_pallets();
+		draw_oam();
 	}
 }
 
@@ -582,6 +583,10 @@ uint8_t debug_ppu_read(uint16_t address) {
 	return value;
 }
 
+sprite debug_oam_read(size_t i) {
+	return oam[i];
+}
+
 void oam_write(uint8_t value, uint8_t address) {
 
 	uint8_t oam_address = address / 4;
@@ -706,4 +711,8 @@ void debug_secondary_oam(void) {
 		 spr_attr_to_byte(secondary_oam[i].attributes),
 		 secondary_oam[i].left_x_pos);
 	}
+}
+
+nes_ppuctrl get_ppuctrl(void) {
+	return ppuctrl;
 }

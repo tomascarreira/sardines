@@ -65,6 +65,7 @@ void ppu_write(uint8_t value, uint16_t address);
 uint8_t ppu_registers_read(uint16_t address);
 void ppu_registers_write(uint8_t value, uint16_t address);
 uint8_t debug_ppu_read(uint16_t address);
+sprite debug_oam_read(size_t i);
 void oam_write(uint8_t value, uint8_t address);
 uint8_t colapse_ppustatus(void);
 size_t get_ppu_cycle(void);
@@ -77,6 +78,7 @@ uint8_t spr_attr_to_byte(spr_attr attr);
 uint8_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_offset, uint plane, uint spr_size);
 void debug_oam(void);
 void debug_secondary_oam(void);
+nes_ppuctrl get_ppuctrl(void);
 
 #endif
 
