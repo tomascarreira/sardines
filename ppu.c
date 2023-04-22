@@ -249,6 +249,7 @@ void clock_ppu(void) {
 					}
 				}
 			}
+			draw_secondary_oam();
 		}
 
 		// put sprite information ready for next scanline
@@ -585,6 +586,14 @@ uint8_t debug_ppu_read(uint16_t address) {
 
 sprite debug_oam_read(size_t i) {
 	return oam[i];
+}
+
+sprite debug_sec_oam_read(size_t i) {
+	return secondary_oam[i];
+}
+
+size_t get_sec_oam_len(void) {
+	return sec_oam_len;
 }
 
 void oam_write(uint8_t value, uint8_t address) {

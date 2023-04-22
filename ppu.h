@@ -66,6 +66,8 @@ uint8_t ppu_registers_read(uint16_t address);
 void ppu_registers_write(uint8_t value, uint16_t address);
 uint8_t debug_ppu_read(uint16_t address);
 sprite debug_oam_read(size_t i);
+sprite debug_sec_oam_read(size_t i);
+size_t get_sec_oam_len(void);
 void oam_write(uint8_t value, uint8_t address);
 uint8_t colapse_ppustatus(void);
 size_t get_ppu_cycle(void);
