@@ -1,3 +1,4 @@
 sardines
 *.o
 .cache
+test

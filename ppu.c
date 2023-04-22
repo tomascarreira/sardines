@@ -33,8 +33,6 @@ static size_t sec_oam_len = 0;
 static uint8_t spr_tile_data[SECONDARY_OAM_SPRITE_NUMBER][2] = { 0 };
 static uint8_t spr_attr_data[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
 static uint8_t spr_x_counter[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
-static int spr_active[SECONDARY_OAM_SPRITE_NUMBER][2] = { 0 };
-static size_t spr_active_len = 0;
 
 static size_t frame = 1;
 static size_t scanline = 0;
@@ -109,26 +107,15 @@ void clock_ppu(void) {
 				uint8_t spr_pixel = 0;
 				uint8_t spr_pallete = 0;
 
-				for (size_t i = 0; i < sec_oam_len; ++i) {
+				// Problem: Even after the sprite is drawn fully it still get checked
+				for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
 					if (!spr_x_counter[i]) {
-						spr_active[spr_active_len][0] = i;
-						spr_active[spr_active_len][1] = 0;
-						++spr_active_len;
-						// max value so it does not go active again
-						spr_x_counter[i] = 0xff;
-					}
 
-					--spr_x_counter[i];
-				}
-
-				for (size_t i = 0; i < spr_active_len; ++i) {
-					int idx = spr_active[i][0];
-					if (idx >= 0) {
-						uint8_t top_tile_pix = spr_tile_data[idx][0] >> 7;
-						uint8_t bot_tile_pix = spr_tile_data[idx][1] >> 7;
+						uint8_t top_tile_pix = spr_tile_data[i][0] >> 7;
+						uint8_t bot_tile_pix = spr_tile_data[i][1] >> 7;
 
 						// Improvement: Send an sprite type instead
-						uint8_t spr_attr = spr_attr_data[idx];
+						uint8_t spr_attr = spr_attr_data[i];
 						spr_pallete = spr_attr & 0x3;
 						uint8_t spr_priority = (spr_attr >> 5) & 0x1;
 						uint8_t spr_flip_h = (spr_attr >> 6) & 0x1;
@@ -136,17 +123,14 @@ void clock_ppu(void) {
 
 						spr_pixel = (bot_tile_pix << 1) + top_tile_pix;
 
-						spr_tile_data[idx][0] <<= 1;
-						spr_tile_data[idx][1] <<= 1;
-						++spr_active[i][1];
-
-						if (spr_active[i][1] >= 8) {
-							spr_active[i][0] = -1;
-						}
+						spr_tile_data[i][0] <<= 1;
+						spr_tile_data[i][1] <<= 1;
 
 						if (spr_pixel) {
 							break;
 						}
+					} else {
+						--spr_x_counter[i];
 					}
 				}
 				
@@ -267,6 +251,7 @@ void clock_ppu(void) {
 					// never be in secondary_oam
 					assert(scanline >= spr.top_y_pos);
 					uint8_t y_offset = scanline - spr.top_y_pos;
+					assert(y_offset < 16);
 					spr_tile_data[i][0] = pattern_table_encode_address(tile_idx, pt_section, y_offset, 0, 16);
 					spr_tile_data[i][1] = pattern_table_encode_address(tile_idx, pt_section, y_offset, 1, 16);
 					spr_attr_data[i] = spr_attr_to_byte(spr.attributes);
@@ -279,8 +264,9 @@ void clock_ppu(void) {
 					// never be in secondary_oam
 					assert(scanline >= spr.top_y_pos);
 					uint8_t y_offset = scanline - spr.top_y_pos;
-					spr_tile_data[i][0] = pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 0, 8);
-					spr_tile_data[i][1] = pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 1, 8);
+					assert(y_offset < 8);
+					spr_tile_data[i][0] = ppu_read(pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 0, 8));
+					spr_tile_data[i][1] = ppu_read(pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 1, 8));
 					spr_attr_data[i] = spr_attr_to_byte(spr.attributes);
 					spr_x_counter[i] = spr.left_x_pos;
 				}
