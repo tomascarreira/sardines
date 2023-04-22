@@ -671,7 +671,7 @@ uint8_t spr_attr_to_byte(spr_attr attr) {
 // C is the column of the tile
 // P is plane inside of the tile (0 for the first, 1 for the second)
 // Y is the row inside the tile
-uint8_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_offset, uint plane, uint spr_size) {
+uint16_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_offset, uint plane, uint spr_size) {
 	uint16_t res = 0;
 
 	if (spr_size == 16) {
