@@ -193,7 +193,7 @@ void draw_oam(void) {
 
 			for (size_t k = 0; k < 8; ++k) {
 				uint8_t pixel = ((pixel_high >> 7) << 1) + (pixel_low >> 7);
-				uint8_t color = debug_ppu_read(pixel + (spr.attributes.pallet << 2) + (1 << 4));
+				uint8_t color = debug_ppu_read(0x3f00 + pixel + (spr.attributes.pallet << 2) + (1 << 4));
 
 				SDL_Rect rect = {
 					i*8*DEBUG_SCALE + k*DEBUG_SCALE,
