@@ -96,41 +96,47 @@ void clock_ppu(void) {
 			bg_shift_attr_lo <<= 1;
 			bg_shift_attr_hi <<= 1;
 
+			uint8_t bg_pixel = 0;
+			uint8_t spr_pixel = 0;
+
+			uint8_t spr_pallete = 0;
+			uint8_t spr_priority = 0;
+
 			if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
-				uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - x_loopy)) & 0x0001;
-				uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
-				uint8_t bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
-			
+				if (ppumask.background) {
+					uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - x_loopy)) & 0x0001;
+					uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
+					bg_pixel = (bg_pixel_hi << 1) | bg_pixel_lo;
+				}
 
-				// Im decrementing x counter after checking for zero
-				// because if the value start at zero it will loop to // MAX UINT8 (255) and will not be drawn
+				if (ppumask.sprites) {
+					// Im decrementing x counter after checking for zero
+					// because if the value start at zero it will loop to // MAX UINT8 (255) and will not be drawn
 
-				uint8_t spr_pixel = 0;
-				uint8_t spr_pallete = 0;
-				uint8_t spr_priority = 0;
 
-				// Problem: Even after the sprite is drawn fully it still get checked
-				for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
-					if (!spr_x_counter[i]) {
+					// Problem: Even after the sprite is drawn fully it still get checked
+					for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
+						if (!spr_x_counter[i]) {
 
-						uint8_t top_tile_pix = spr_tile_data[i][0] >> 7;
-						uint8_t bot_tile_pix = spr_tile_data[i][1] >> 7;
+							uint8_t top_tile_pix = spr_tile_data[i][0] >> 7;
+							uint8_t bot_tile_pix = spr_tile_data[i][1] >> 7;
 
-						// Improvement: Send an sprite type instead
-						uint8_t spr_attr = spr_attr_data[i];
-						spr_pallete = spr_attr & 0x3;
-						spr_priority = (spr_attr >> 5) & 0x1;
+							// Improvement: Send an sprite type instead
+							uint8_t spr_attr = spr_attr_data[i];
+							spr_pallete = spr_attr & 0x3;
+							spr_priority = (spr_attr >> 5) & 0x1;
 
-						spr_pixel = (bot_tile_pix << 1) + top_tile_pix;
+							spr_pixel = (bot_tile_pix << 1) + top_tile_pix;
 
-						spr_tile_data[i][0] <<= 1;
-						spr_tile_data[i][1] <<= 1;
+							spr_tile_data[i][0] <<= 1;
+							spr_tile_data[i][1] <<= 1;
 
-						if (spr_pixel) {
-							break;
+							if (spr_pixel) {
+								break;
+							}
+							} else {
+							--spr_x_counter[i];
 						}
-					} else {
-						--spr_x_counter[i];
 					}
 				}
 				
