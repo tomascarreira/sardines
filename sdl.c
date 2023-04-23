@@ -108,9 +108,6 @@ void init_sdl(void) {
 		exit(EXIT_FAILURE);
 	}
 
-	if(SDL_RenderSetScale(renderer, RENDER_SCALE, RENDER_SCALE)){
-		printf("RenderSetScale failed: %s\n", SDL_GetError());
-	}
 	SDL_RenderSetLogicalSize(renderer, 256, 240);
 	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 255, 240);
