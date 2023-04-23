@@ -35,6 +35,10 @@ static uint8_t spr_tile_data[SECONDARY_OAM_SPRITE_NUMBER][2] = { 0 };
 static uint8_t spr_attr_data[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
 static uint8_t spr_x_counter[SECONDARY_OAM_SPRITE_NUMBER] = { 0 };
 
+static bool spr_0_in_scanline = false;
+static bool spr_0_in_next_scanline = false;
+static bool spr_0_pixel = false;
+
 static size_t frame = 1;
 static size_t scanline = 0;
 static size_t cycle = 21;
@@ -132,6 +136,9 @@ void clock_ppu(void) {
 							spr_tile_data[i][1] <<= 1;
 
 							if (spr_pixel) {
+								if (!i && spr_0_in_scanline) {
+									spr_0_pixel = true;
+								}
 								break;
 							}
 							} else {
@@ -154,10 +161,20 @@ void clock_ppu(void) {
 					color = ppu_read(pallet_addr + 0x3f00);
 
 				} else if (bg_pixel && spr_pixel && !spr_priority) {
+					if (!ppustatus.spr_0hit && spr_0_pixel) {
+						ppustatus.spr_0hit = 1;
+						printf("Sprite 0 Hit: %zu\n", frame);
+					}
+
 					uint16_t pallet_addr = spr_pixel + (spr_pallete << 2) + (1 << 4);
 					color = ppu_read(pallet_addr + 0x3f00);	
 
 				} else if (bg_pixel && spr_pixel && spr_priority) {
+					if (!ppustatus.spr_0hit && spr_0_pixel) {
+						ppustatus.spr_0hit = 1;
+						printf("Sprite 0 Hit: %zu\n", frame);
+					}
+
 					uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
 					color = ppu_read(pallet_addr + 0x3f00);
 				} else {
@@ -217,11 +234,16 @@ void clock_ppu(void) {
 		if (ppuctrl.nmi == 1) {
 			nmi();
 		}
+	}
 
-	} else if (scanline == 261 && cycle == 1) {
+	if (scanline == 261 && cycle == 1) {
 		ppustatus.v_blank = 0;
 		ppustatus.spr_0hit = 0;
 		ppustatus.spr_overflow = 0;
+
+		spr_0_in_next_scanline = false;
+		spr_0_in_scanline = false;
+		spr_0_pixel =false;
 	
 	} else if (scanline == 261 && cycle >= 280 && cycle <= 304 && (ppumask.background == 1 || ppumask.sprites == 1)) {
 	
@@ -244,6 +266,10 @@ void clock_ppu(void) {
 					if (sprite_in_scanline(scanline, oam[i].top_y_pos)) {
 						secondary_oam[sec_oam_len] = oam[i];
 						++sec_oam_len;
+
+						if (!i) {
+							spr_0_in_next_scanline = true;
+						}
 					}
 				} else {
 					// Handle sprite overflow flag (that is broken on the real hardware)
@@ -259,6 +285,10 @@ void clock_ppu(void) {
 
 		// put sprite information ready for next scanline
 		if (cycle == 257) {
+			if (spr_0_in_next_scanline) {
+				spr_0_in_scanline = true;
+				spr_0_in_next_scanline = false;
+			}
 			for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
 				if (i >= sec_oam_len) {
 					// What to put in the shift registers and latches for the empty slots ??
@@ -272,7 +302,7 @@ void clock_ppu(void) {
 					assert(scanline >= spr.top_y_pos);
 					uint8_t y_offset = scanline - spr.top_y_pos;
 					if (spr.attributes.flip_v) {
-						y_offset = 8 - y_offset;
+						y_offset = 15 - y_offset;
 					}
 					assert(y_offset < 16);
 					spr_tile_data[i][0] = pattern_table_encode_address(tile_idx, pt_section, y_offset, 0, 16);
@@ -293,7 +323,7 @@ void clock_ppu(void) {
 					assert(scanline >= spr.top_y_pos);
 					uint8_t y_offset = scanline - spr.top_y_pos;
 					if (spr.attributes.flip_v) {
-						y_offset = 8 - y_offset;
+						y_offset = 7 - y_offset;
 					}
 					assert(y_offset < 8);
 					spr_tile_data[i][0] = ppu_read(pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 0, 8));
