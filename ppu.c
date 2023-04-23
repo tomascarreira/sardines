@@ -182,7 +182,7 @@ void clock_ppu(void) {
 					exit(EXIT_FAILURE);
 				}
 
-				draw_pixel(cycle - 1, scanline, color);
+				draw_pixel(cycle, scanline, color);
 			}
 
 			switch (cycle % 8) {
@@ -280,7 +280,7 @@ void clock_ppu(void) {
 					}
 				}
 			}
-			draw_secondary_oam();
+			//draw_secondary_oam();
 		}
 
 		// put sprite information ready for next scanline
@@ -342,7 +342,6 @@ void clock_ppu(void) {
 
 	if (scanline == 239 && cycle == 256) {
 		present_frame();
-	
 	}
 
 	++cycle;
@@ -354,9 +353,9 @@ void clock_ppu(void) {
 		scanline = 0;
 		++frame;
 	
-		draw_pattern_table();
-		draw_pallets();
-		draw_oam();
+		//draw_pattern_table();
+		//draw_pallets();
+		//draw_oam();
 	}
 }
 

@@ -18,6 +18,10 @@ static SDL_Renderer* oam_renderer;
 static SDL_Window* sec_oam_window;
 static SDL_Renderer* sec_oam_renderer;
 
+static SDL_Texture* texture;
+
+static uint8_t* frame_buffer;
+
 nes_color pallet[64] = {
 	{84, 84, 84}, {0, 30, 116}, {8, 16, 144}, {48, 0, 136}, {68, 0, 100}, {92, 0, 48}, {84, 4, 0}, {60, 24, 0},
 	{0, 32, 42}, {0, 8, 58}, {0, 64, 0}, {0, 60, 0}, {0, 50, 60}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
@@ -38,7 +42,7 @@ void init_sdl(void) {
 	atexit(SDL_Quit);
 
 	window = SDL_CreateWindow("SardiNES", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-								255*SCALE, 240*SCALE, SDL_WINDOW_RESIZABLE);
+								256, 240, SDL_WINDOW_RESIZABLE);
 	if (!window) {
 		printf("SDL_CreaterWindow failed: %s", SDL_GetError());
 		exit(EXIT_FAILURE);
@@ -101,6 +105,22 @@ void init_sdl(void) {
 	sec_oam_renderer = SDL_CreateRenderer(sec_oam_window, -1, 0);
 	if (!sec_oam_renderer) {
 		printf("SDL_CreateRenderer failed: %s", SDL_GetError());
+		exit(EXIT_FAILURE);
+	}
+
+	if(SDL_RenderSetScale(renderer, RENDER_SCALE, RENDER_SCALE)){
+		printf("RenderSetScale failed: %s\n", SDL_GetError());
+	}
+	SDL_RenderSetLogicalSize(renderer, 256, 240);
+	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 255, 240);
+	if (!texture) {
+		printf("SDL_CreateTexture failed: %s\n", SDL_GetError());
+	}
+
+	frame_buffer = calloc(3*256*240, 1);
+	if (!frame_buffer) {
+		printf("Calloc failed\n");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -267,11 +287,9 @@ void draw_secondary_oam(void) {
 }
 
 void draw_pixel(size_t x, size_t y, uint8_t color) {
-
-	SDL_Rect pixel = {x*SCALE, y*SCALE, SCALE, SCALE};
-	SDL_SetRenderDrawColor(renderer, pallet[color].red, pallet[color].green, pallet[color].blue, 255);
-	SDL_RenderDrawRect(renderer, &pixel);
-	SDL_RenderFillRect(renderer, &pixel);
+	frame_buffer[x*3 + y*255*3] = pallet[color].red;
+	frame_buffer[x*3 + y*255*3 + 1] = pallet[color].green;
+	frame_buffer[x*3 + y*255*3 + 2] = pallet[color].blue;
 }
 
 void clear_screen(void) {
@@ -281,6 +299,11 @@ void clear_screen(void) {
 }
 
 void present_frame(void) {
-
+	if (SDL_UpdateTexture(texture, NULL, frame_buffer, 255*3)) {
+		printf("SDL_UpdateTexture failed: %s\n", SDL_GetError());
+	}
+	if (SDL_RenderCopy(renderer, texture, NULL, NULL)) {
+		printf("SDL_RenderCopy failed: %s\n", SDL_GetError());
+	}
 	SDL_RenderPresent(renderer);
 }

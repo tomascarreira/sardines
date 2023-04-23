@@ -6,6 +6,7 @@
 
 #define SCALE 3
 #define DEBUG_SCALE 2
+#define RENDER_SCALE 4.0
 
 typedef struct nes_color nes_color;
 struct nes_color{
