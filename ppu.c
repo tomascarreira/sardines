@@ -96,13 +96,13 @@ void clock_ppu(void) {
 			bg_shift_attr_lo <<= 1;
 			bg_shift_attr_hi <<= 1;
 
-			uint8_t bg_pixel = 0;
-			uint8_t spr_pixel = 0;
-
-			uint8_t spr_pallete = 0;
-			uint8_t spr_priority = 0;
-
 			if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
+				uint8_t bg_pixel = 0;
+				uint8_t spr_pixel = 0;
+
+				uint8_t spr_pallete = 0;
+				uint8_t spr_priority = 0;
+
 				if (ppumask.background) {
 					uint8_t bg_pixel_lo = (bg_shift_patt_lo >> (15 - x_loopy)) & 0x0001;
 					uint8_t bg_pixel_hi = (bg_shift_patt_hi >> (15 - x_loopy)) & 0x0001;
