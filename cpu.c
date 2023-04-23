@@ -138,7 +138,7 @@ void cpu_write(uint8_t value, uint16_t address) {
 	} else if (address >= 0x4000 && address <= 0x401f){
 		if (address == 0x4014) {
 			oamdma = value;
-			for (size_t i = 0; i < 0xff; ++i) {
+			for (size_t i = 0; i < 0x100; ++i) {
 				oam_write(cpu_read((value << 8) | i), i);
 			}
 			instr_clocks += cycles % 2 ? 513 : 514; // when odd cpu cycle add 1 cycle
