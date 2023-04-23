@@ -11,6 +11,7 @@
 typedef struct nes_mapper nes_mapper;
 struct nes_mapper {
 	uint8_t* rom;
+	uint8_t* chrram;
 	uint8_t* prgram;
 	void* registers;
 };

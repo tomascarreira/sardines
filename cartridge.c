@@ -63,6 +63,14 @@ void init_mapper(uint8_t* rom) {
 		mapper.rom = rom + HEADER_SIZE;
 	}
 
+	if (!header.chrrom) {
+		mapper.chrram = calloc(0x2000, 1);
+		if (!mapper.chrram) {
+			printf("Calloc failed\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	switch (header.number) {
 
 		uint8_t* prgram;
@@ -174,7 +182,11 @@ uint8_t ppu_mapper_read(uint16_t address) {
 	switch(header.number) {
 
 		case 0:
-			value = mapper.rom[address + 0x4000 * header.prgrom];
+			if (header.chrrom) {
+				value = mapper.rom[address + 0x4000 * header.prgrom];
+			} else {
+				value = mapper.chrram[address];
+			}
 			break;
 
 		default:
@@ -190,7 +202,12 @@ void ppu_mapper_write(uint8_t value, uint16_t address) {
 	switch(header.number) {
 
 		case 0:
-			mapper.rom[address + 0x4000 * header.prgrom] = value;
+			if (header.chrrom) {
+				printf("Cannot write to chr rom.");
+				mapper.rom[address + 0x4000 * header.prgrom] = value;
+			} else {
+				mapper.chrram[address] = value;
+			}
 			break;
 
 		default:
@@ -243,7 +260,11 @@ uint8_t debug_ppu_mapper_read(uint16_t address) {
 	switch(header.number) {
 
 		case 0:
-			value = mapper.rom[address + 0x4000 * header.prgrom];
+			if (header.chrrom) {
+				value = mapper.rom[address + 0x4000 * header.prgrom];
+			} else {
+				value = mapper.chrram[address];
+			}
 			break;
 
 		default:
