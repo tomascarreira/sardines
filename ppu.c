@@ -104,7 +104,7 @@ void clock_ppu(void) {
 				uint8_t bg_pixel = 0;
 				uint8_t spr_pixel = 0;
 
-				uint8_t spr_pallete = 0;
+				uint8_t spr_pallet = 0;
 				uint8_t spr_priority = 0;
 
 				if (ppumask.background) {
@@ -117,31 +117,37 @@ void clock_ppu(void) {
 					// Im decrementing x counter after checking for zero
 					// because if the value start at zero it will loop to // MAX UINT8 (255) and will not be drawn
 
+					bool pixel_found = false;
 
 					// Problem: Even after the sprite is drawn fully it still get checked
 					for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
 						if (!spr_x_counter[i]) {
+							uint8_t pixel = 0;
+							uint8_t pallet = 0;
 
 							uint8_t top_tile_pix = spr_tile_data[i][0] >> 7;
 							uint8_t bot_tile_pix = spr_tile_data[i][1] >> 7;
 
 							// Improvement: Send an sprite type instead
 							uint8_t spr_attr = spr_attr_data[i];
-							spr_pallete = spr_attr & 0x3;
+							pallet = spr_attr & 0x3;
 							spr_priority = (spr_attr >> 5) & 0x1;
 
-							spr_pixel = (bot_tile_pix << 1) + top_tile_pix;
+							pixel = (bot_tile_pix << 1) + top_tile_pix;
 
 							spr_tile_data[i][0] <<= 1;
 							spr_tile_data[i][1] <<= 1;
 
-							if (spr_pixel) {
+							if (pixel && !pixel_found) {
 								if (!i && spr_0_in_scanline) {
 									spr_0_pixel = true;
 								}
-								break;
+								pixel_found = true;
+								spr_pixel = pixel;
+								spr_pallet = pallet;
 							}
-							} else {
+
+						} else {
 							--spr_x_counter[i];
 						}
 					}
@@ -153,7 +159,7 @@ void clock_ppu(void) {
 					color = ppu_read(0x3f00);
 
 				} else if (!bg_pixel && spr_pixel) {
-					uint16_t pallet_addr = spr_pixel + (spr_pallete << 2) + (1 << 4);
+					uint16_t pallet_addr = spr_pixel + (spr_pallet << 2) + (1 << 4);
 					color = ppu_read(pallet_addr + 0x3f00);	
 
 				} else if (bg_pixel && !spr_pixel) {
@@ -163,10 +169,9 @@ void clock_ppu(void) {
 				} else if (bg_pixel && spr_pixel && !spr_priority) {
 					if (!ppustatus.spr_0hit && spr_0_pixel) {
 						ppustatus.spr_0hit = 1;
-						printf("Sprite 0 Hit: %zu\n", frame);
 					}
 
-					uint16_t pallet_addr = spr_pixel + (spr_pallete << 2) + (1 << 4);
+					uint16_t pallet_addr = spr_pixel + (spr_pallet << 2) + (1 << 4);
 					color = ppu_read(pallet_addr + 0x3f00);	
 
 				} else if (bg_pixel && spr_pixel && spr_priority) {
