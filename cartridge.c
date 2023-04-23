@@ -174,7 +174,7 @@ uint8_t ppu_mapper_read(uint16_t address) {
 	switch(header.number) {
 
 		case 0:
-			value = mapper.rom[address - 0x4000 * header.prgrom];
+			value = mapper.rom[address + 0x4000 * header.prgrom];
 			break;
 
 		default:
@@ -190,7 +190,7 @@ void ppu_mapper_write(uint8_t value, uint16_t address) {
 	switch(header.number) {
 
 		case 0:
-			mapper.rom[address - 0x4000 * header.prgrom] = value;
+			mapper.rom[address + 0x4000 * header.prgrom] = value;
 			break;
 
 		default:
@@ -243,7 +243,7 @@ uint8_t debug_ppu_mapper_read(uint16_t address) {
 	switch(header.number) {
 
 		case 0:
-			value = mapper.rom[address - 0x4000 * header.prgrom];
+			value = mapper.rom[address + 0x4000 * header.prgrom];
 			break;
 
 		default:
