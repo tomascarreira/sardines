@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <sys/types.h>
@@ -106,6 +107,7 @@ void clock_ppu(void) {
 
 				uint8_t spr_pixel = 0;
 				uint8_t spr_pallete = 0;
+				uint8_t spr_priority = 0;
 
 				// Problem: Even after the sprite is drawn fully it still get checked
 				for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
@@ -117,9 +119,7 @@ void clock_ppu(void) {
 						// Improvement: Send an sprite type instead
 						uint8_t spr_attr = spr_attr_data[i];
 						spr_pallete = spr_attr & 0x3;
-						uint8_t spr_priority = (spr_attr >> 5) & 0x1;
-						uint8_t spr_flip_h = (spr_attr >> 6) & 0x1;
-						uint8_t spr_flip_v = (spr_attr >> 7) & 0x1;
+						spr_priority = (spr_attr >> 5) & 0x1;
 
 						spr_pixel = (bot_tile_pix << 1) + top_tile_pix;
 
@@ -136,12 +136,27 @@ void clock_ppu(void) {
 				
 				uint8_t color;
 				// Improvement: Function to get address for colour
-				if (spr_pixel) {
+				if (!bg_pixel && !spr_pixel) {
+					color = ppu_read(0x3f00);
+
+				} else if (!bg_pixel && spr_pixel) {
 					uint16_t pallet_addr = spr_pixel + (spr_pallete << 2) + (1 << 4);
 					color = ppu_read(pallet_addr + 0x3f00);	
-				} else {
+
+				} else if (bg_pixel && !spr_pixel) {
 					uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
 					color = ppu_read(pallet_addr + 0x3f00);
+
+				} else if (bg_pixel && spr_pixel && !spr_priority) {
+					uint16_t pallet_addr = spr_pixel + (spr_pallete << 2) + (1 << 4);
+					color = ppu_read(pallet_addr + 0x3f00);	
+
+				} else if (bg_pixel && spr_pixel && spr_priority) {
+					uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
+					color = ppu_read(pallet_addr + 0x3f00);
+				} else {
+					printf("This should not happend");
+					exit(EXIT_FAILURE);
 				}
 
 				draw_pixel(cycle - 1, scanline, color);
@@ -240,8 +255,7 @@ void clock_ppu(void) {
 		if (cycle == 257) {
 			for (size_t i = 0; i < SECONDARY_OAM_SPRITE_NUMBER; ++i) {
 				if (i >= sec_oam_len) {
-					// What to put in the sifht registers and latches for the empty slots ??
-					// For now i will just use sec_oam_len in the redering fase 
+					// What to put in the shift registers and latches for the empty slots ??
 				} else if (ppuctrl.spr_size) {
 					sprite spr = secondary_oam[i];
 					uint8_t pt_section = spr.tile_idx & 0x1;
@@ -251,11 +265,19 @@ void clock_ppu(void) {
 					// never be in secondary_oam
 					assert(scanline >= spr.top_y_pos);
 					uint8_t y_offset = scanline - spr.top_y_pos;
+					if (spr.attributes.flip_v) {
+						y_offset = 8 - y_offset;
+					}
 					assert(y_offset < 16);
 					spr_tile_data[i][0] = pattern_table_encode_address(tile_idx, pt_section, y_offset, 0, 16);
 					spr_tile_data[i][1] = pattern_table_encode_address(tile_idx, pt_section, y_offset, 1, 16);
 					spr_attr_data[i] = spr_attr_to_byte(spr.attributes);
 					spr_x_counter[i] = spr.left_x_pos;
+
+					if (spr.attributes.flip_h) {
+						spr_tile_data[i][0] = reverse_byte(spr_tile_data[i][0]);
+						spr_tile_data[i][1] = reverse_byte(spr_tile_data[i][1]);
+					}
 				} else {
 					sprite spr = secondary_oam[i];
 					uint8_t tile_idx = spr.tile_idx;
@@ -264,11 +286,19 @@ void clock_ppu(void) {
 					// never be in secondary_oam
 					assert(scanline >= spr.top_y_pos);
 					uint8_t y_offset = scanline - spr.top_y_pos;
+					if (spr.attributes.flip_v) {
+						y_offset = 8 - y_offset;
+					}
 					assert(y_offset < 8);
 					spr_tile_data[i][0] = ppu_read(pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 0, 8));
 					spr_tile_data[i][1] = ppu_read(pattern_table_encode_address(tile_idx, ppuctrl.spr_addr, y_offset, 1, 8));
 					spr_attr_data[i] = spr_attr_to_byte(spr.attributes);
 					spr_x_counter[i] = spr.left_x_pos;
+
+					if (spr.attributes.flip_h) {
+						spr_tile_data[i][0] = reverse_byte(spr_tile_data[i][0]);
+						spr_tile_data[i][1] = reverse_byte(spr_tile_data[i][1]);
+					}
 				}
 			}
 		}
@@ -593,9 +623,9 @@ void oam_write(uint8_t value, uint8_t address) {
 		case 2: 
 			oam[oam_address].attributes.pallet = value;
 			oam[oam_address].attributes.unimplemented = 0;
-			oam[oam_address].attributes.priority = value << 5;
-			oam[oam_address].attributes.flip_h = value << 6;
-			oam[oam_address].attributes.flip_v = value << 7;
+			oam[oam_address].attributes.priority = value >> 5;
+			oam[oam_address].attributes.flip_h = value >> 6;
+			oam[oam_address].attributes.flip_v = value >> 7;
 			break;
 	}
 }
@@ -710,4 +740,15 @@ void debug_secondary_oam(void) {
 
 nes_ppuctrl get_ppuctrl(void) {
 	return ppuctrl;
+}
+
+uint8_t reverse_byte(uint8_t byte) {
+	uint8_t res = 0;
+
+	for (size_t i = 0; i < 8; ++i) {
+		res += (byte & 0x1) << (7 - i);
+		byte >>= 1;
+	}
+
+	return res;
 }

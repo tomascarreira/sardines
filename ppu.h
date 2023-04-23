@@ -81,6 +81,7 @@ uint16_t pattern_table_encode_address(uint8_t tile_idx, uint section, uint y_off
 void debug_oam(void);
 void debug_secondary_oam(void);
 nes_ppuctrl get_ppuctrl(void);
+uint8_t reverse_byte(uint8_t byte);
 
 #endif
 
