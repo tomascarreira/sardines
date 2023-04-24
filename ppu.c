@@ -161,7 +161,7 @@ bool clock_ppu(void) {
 					color = ppu_read(pallet_addr + 0x3f00);	
 
 				} else if (bg_pixel && !spr_pixel) {
-					uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
+					uint16_t pallet_addr = ((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel;
 					color = ppu_read(pallet_addr + 0x3f00);
 
 				} else if (bg_pixel && spr_pixel && !spr_priority) {
@@ -569,7 +569,7 @@ void ppu_registers_write(uint8_t value, uint16_t address) {
 				x_loopy = value & 0x07;
 				w_loopy ^= 1;
 			} else {
-				t_loopy = (t_loopy & 0x831f) | ((value & 0xf8) << 5) | ((value & 0x07) << 12);
+				t_loopy = (t_loopy & 0x0c1f) | ((value & 0xf8) << 5) | ((value & 0x07) << 12);
 				w_loopy ^= 1;
 			}
 			break;
@@ -691,6 +691,7 @@ size_t get_scanline(void) {
 	return scanline;  
 }
 
+// Copied from the nesdev wiki
 void increment_horizontal(void) {
 
 	if ((v_loopy & 0x001f) == 31) {
@@ -701,6 +702,7 @@ void increment_horizontal(void) {
 				}
 }
 
+// Copied form the nesdev wiki
 void increment_vertical(void) {
 
 	if ((v_loopy & 0x7000) != 0x7000) {
