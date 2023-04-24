@@ -95,10 +95,6 @@ void clock_ppu(void) {
 
 		if ((cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336)) {
 			
-			bg_shift_patt_lo <<= 1;
-			bg_shift_patt_hi <<= 1;
-			bg_shift_attr_lo <<= 1;
-			bg_shift_attr_hi <<= 1;
 
 			if (scanline != 261 && (cycle >= 1 && cycle <= 256)) {
 				uint8_t bg_pixel = 0;
@@ -224,6 +220,11 @@ void clock_ppu(void) {
 					bg_next_tile_hi = ppu_read(ppuctrl.bck_addr  << 12 | (bg_next_tile_id << 4) | (v_loopy >> 12) | 0x0008);
 					break;
 			}
+
+			bg_shift_patt_lo <<= 1;
+			bg_shift_patt_hi <<= 1;
+			bg_shift_attr_lo <<= 1;
+			bg_shift_attr_hi <<= 1;
 
 			if (cycle == 256) {
 				increment_vertical();
