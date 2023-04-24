@@ -56,15 +56,19 @@ int main(int argc, char* argv[argc+1]) {
 					}
 			}
 		}
-
+		bool frame_ready = false;
 		if (!step_mode) {
+			while (!frame_ready) {
 			if (i >= 2)  {
 				clock_cpu();
 				i = -1;
 				++cycles;
 			}
-			clock_ppu();
+			frame_ready = clock_ppu();
 			++i;
+			}
+
+			present_frame();
 		}
 	}
 

@@ -59,7 +59,7 @@ struct sprite {
 // The three unimplemented bits of each sprite's byte 2 do not exist in the PPU and always read back as 0 on PPU revisions that allow reading PPU OAM through OAMDATA ($2004). This can be emulated by ANDing byte 2 with $E3 either when writing to or when reading from OAM. from nesdev.org
 
 void init_ppu(void);
-void clock_ppu(void);
+bool clock_ppu(void);
 uint8_t ppu_read(uint16_t address);
 void ppu_write(uint8_t value, uint16_t address);
 uint8_t ppu_registers_read(uint16_t address);

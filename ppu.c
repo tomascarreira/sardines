@@ -68,7 +68,9 @@ void init_ppu(void) {
 	}
 }
 
-void clock_ppu(void) {
+bool clock_ppu(void) {
+
+	bool res = false;
 
 	static uint8_t bg_next_tile_id;
 	static uint8_t bg_next_tile_attr;
@@ -87,7 +89,7 @@ void clock_ppu(void) {
 
 	if (frame % 2 && scanline == 0 && cycle == 0) {
 		++cycle;
-		return;
+		return false;
 	}
 
 	// Rendering
@@ -347,7 +349,7 @@ void clock_ppu(void) {
 	}
 
 	if (scanline == 239 && cycle == 256) {
-		present_frame();
+		res = true;
 	}
 
 	++cycle;
@@ -363,6 +365,8 @@ void clock_ppu(void) {
 		//draw_pallets();
 		//draw_oam();
 	}
+
+	return res;
 }
 
 uint8_t ppu_read(uint16_t address) {
