@@ -506,7 +506,7 @@ uint8_t ppu_registers_read(uint16_t address) {
 				buffer = ppu_read(v_loopy);
 			} else {
 				value = ppu_read(v_loopy);
-				buffer = ppu_read((v_loopy & 0x00ff) | 0x2c00);
+				buffer = ppu_read(v_loopy - 0x1000);
 			}
 			v_loopy += ppuctrl.inc ? 32 : 1; 
 			break;
