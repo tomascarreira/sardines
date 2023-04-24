@@ -194,12 +194,9 @@ bool clock_ppu(void) {
 					bg_shift_patt_lo = (bg_shift_patt_lo & 0xff00) | bg_next_tile_lo;
 					bg_shift_patt_hi = (bg_shift_patt_hi & 0xff00) | bg_next_tile_hi;
 					uint8_t pal_attr = bg_next_tile_attr;
-					if (v_loopy & 0x0001) {
-						pal_attr >>= 2;
-					}
-					if (v_loopy & 0x03e0) {
-						pal_attr >>= 4;
-					}
+					// Took this from mesen still dont know how it works
+					uint8_t shift = ((v_loopy >> 4) & 0x04) | (v_loopy & 0x02);
+					pal_attr >>= shift;
 					
 					bg_shift_attr_lo = ((bg_shift_attr_lo & 0xff00) | ((pal_attr & 0x01) ? 0xff : 0x00));
 					bg_shift_attr_hi = ((bg_shift_attr_hi & 0xff00) | ((pal_attr & 0x02) ? 0xff : 0x00));
