@@ -3,6 +3,15 @@
 #include "cpu.h"
 #include "ppu.h"
 #include "sdl.h"
+#include <bits/time.h>
+#include <time.h>
+
+void add_ns(struct timespec* time, long int ns) {
+	int s = time->tv_sec + ((time->tv_nsec + ns) / 1000000000);
+	ns = (time->tv_nsec + ns) % 1000000000;
+	time->tv_sec = s;
+	time->tv_nsec = ns;
+}
 
 size_t cycles = 7;
 
@@ -22,6 +31,10 @@ int main(int argc, char* argv[argc+1]) {
 	bool step_mode = false;
 	bool keep_looping = true;
 	while (keep_looping) {
+		struct timespec start = { 0 };
+		clock_gettime(CLOCK_REALTIME, &start);
+		struct timespec target = { 0 };
+		add_ns(&target, 16666666);
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
@@ -70,6 +83,7 @@ int main(int argc, char* argv[argc+1]) {
 
 			present_frame();
 		}
+		clock_nanosleep(CLOCK_REALTIME, 0, &target, NULL);
 	}
 
 	free(rom);
@@ -78,4 +92,5 @@ int main(int argc, char* argv[argc+1]) {
 
 	return EXIT_SUCCESS;
 }
+
 
