@@ -5,13 +5,19 @@
 #include "sdl.h"
 #include "input.h"
 #include <bits/time.h>
+#include <stdio.h>
 #include <time.h>
 
-void add_ns(struct timespec* time, long int ns) {
+struct timespec add_ns(struct timespec* time, long int ns) {
 	int s = time->tv_sec + ((time->tv_nsec + ns) / 1000000000);
 	ns = (time->tv_nsec + ns) % 1000000000;
-	time->tv_sec = s;
-	time->tv_nsec = ns;
+	struct timespec res = { s, ns };
+
+	return res;
+}
+
+void print_timespec(struct timespec time, char* name) {
+	printf("%s: s=%ld, ns=%ld\n", name, time.tv_sec, time.tv_nsec);
 }
 
 size_t cycles = 7;
@@ -35,7 +41,7 @@ int main(int argc, char* argv[argc+1]) {
 		struct timespec start = { 0 };
 		clock_gettime(CLOCK_REALTIME, &start);
 		struct timespec target = { 0 };
-		add_ns(&target, 16666666);
+		target = add_ns(&start, 16639267);
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
@@ -124,7 +130,7 @@ int main(int argc, char* argv[argc+1]) {
 
 			present_frame();
 		}
-		clock_nanosleep(CLOCK_REALTIME, 0, &target, NULL);
+		clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &target, NULL);
 	}
 
 	free(rom);
