@@ -54,9 +54,9 @@ int main(int argc, char* argv[argc+1]) {
 					}
 
 				case SDL_KEYDOWN:
-					if (event.key.keysym.scancode == SDL_SCANCODE_S && !step_mode) {
+					if (event.key.keysym.scancode == SDL_SCANCODE_X && !step_mode) {
 						step_mode = true;	
-					} else if (event.key.keysym.scancode == SDL_SCANCODE_S && step_mode) {
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_X && step_mode) {
 						if (i >= 2)  {
 							clock_cpu();
 							i = -1;
