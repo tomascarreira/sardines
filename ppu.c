@@ -175,7 +175,6 @@ bool clock_ppu(void) {
 				} else if (bg_pixel && spr_pixel && spr_priority) {
 					if (!ppustatus.spr_0hit && spr_0_pixel) {
 						ppustatus.spr_0hit = 1;
-						printf("Sprite 0 Hit: %zu\n", frame);
 					}
 
 					uint16_t pallet_addr =((bg_shift_attr_hi >> (15 - x_loopy)) << 3) | ((bg_shift_attr_lo >> (15 - x_loopy)) << 2) | bg_pixel; 	
