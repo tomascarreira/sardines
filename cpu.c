@@ -2,6 +2,7 @@
 #include "cpu.h"
 #include "ppu.h"
 #include "cartridge.h"
+#include "input.h"
 #include "log.h"
 
 static nes_cpu cpu = { 0 };
@@ -116,6 +117,11 @@ uint8_t cpu_read(uint16_t address) {
 
 	} else if (address >= 0x4000 && address <= 0x401f){
 		value = 0;
+		if (address == 0x4016) {
+			value = get_controller_data(1);
+		} else if (address == 0x4017) {
+			value = get_controller_data(2);
+		}
 
 	} else if (address >= 0x4020 && address <= 0xffff) {
 		value = mapper_read(address);
@@ -143,8 +149,12 @@ void cpu_write(uint8_t value, uint16_t address) {
 			}
 			instr_clocks += cycles % 2 ? 513 : 514; // when odd cpu cycle add 1 cycle
 		
-		} else {
-
+		} else if (address == 0x4016) {
+			if (value & 0x1) {
+				poll_controller();
+			} else {
+				end_poll_controller();
+			}
 		}
 
 	} else if (address >= 0x4020 && address <= 0xffff) {

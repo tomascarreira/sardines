@@ -3,6 +3,7 @@
 #include "cpu.h"
 #include "ppu.h"
 #include "sdl.h"
+#include "input.h"
 #include <bits/time.h>
 #include <time.h>
 
@@ -52,6 +53,7 @@ int main(int argc, char* argv[argc+1]) {
 					} else if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
 						SDL_DestroyWindow(SDL_GetWindowFromID(event.window.windowID));
 					}
+					break;
 
 				case SDL_KEYDOWN:
 					if (event.key.keysym.scancode == SDL_SCANCODE_X && !step_mode) {
@@ -66,7 +68,45 @@ int main(int argc, char* argv[argc+1]) {
 						++i;
 					} else if (event.key.keysym.scancode == SDL_SCANCODE_C) {
 						step_mode = false;
+
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_J) {
+						set_controller_data(1, a, true);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_B) {
+						set_controller_data(1, b, true);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_O) {
+						set_controller_data(1, contr_select, true);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_P) {
+						set_controller_data(1, contr_start, true);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_W) {
+						set_controller_data(1, up, true);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_S) {
+						set_controller_data(1, down, true);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_A) {
+						set_controller_data(1, left, true);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_D) {
+						set_controller_data(1, right, true);
 					}
+				break;
+
+				case SDL_KEYUP:
+					if (event.key.keysym.scancode == SDL_SCANCODE_J) {
+						set_controller_data(1, a, false);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_K) {
+						set_controller_data(1, b, false);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_P) {
+						set_controller_data(1, contr_select, false);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_O) {
+						set_controller_data(1, contr_start, false);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_W) {
+						set_controller_data(1, up, false);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_S) {
+						set_controller_data(1, down, false);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_A) {
+						set_controller_data(1, left, false);
+					} else if (event.key.keysym.scancode == SDL_SCANCODE_D) {
+						set_controller_data(1, right, false);
+					}
+				break;
 			}
 		}
 		bool frame_ready = false;
@@ -78,6 +118,7 @@ int main(int argc, char* argv[argc+1]) {
 				++cycles;
 			}
 			frame_ready = clock_ppu();
+			update_input();
 			++i;
 			}
 

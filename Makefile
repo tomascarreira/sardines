@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Wpedantic -g `sdl2-config --cflags --libs`
-OBJS=cartridge.o main.o cpu.o ppu.o sdl.o log.o
+OBJS=cartridge.o main.o cpu.o ppu.o sdl.o input.o log.o
 BIN=sardines
 
 all:$(BIN)
