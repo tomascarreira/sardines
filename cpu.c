@@ -4,6 +4,7 @@
 #include "cartridge.h"
 #include "input.h"
 #include "log.h"
+#include <time.h>
 
 static nes_cpu cpu = { 0 };
 static uint8_t* ram;
@@ -152,6 +153,8 @@ void cpu_write(uint8_t value, uint16_t address) {
 			for (size_t i = 0; i < 0x100; ++i) {
 				oam_write(cpu_read((value << 8) | i), i);
 			}
+			struct timespec timer = { 0, cycles % 2 ? (559 * 513) : (559* 514) };
+			nanosleep(&timer, NULL);
 			instr_clocks += cycles % 2 ? 513 : 514; // when odd cpu cycle add 1 cycle
 		
 		} else if (address == 0x4016) {
