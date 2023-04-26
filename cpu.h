@@ -39,6 +39,7 @@ uint8_t pop(void);
 uint8_t colapse_status(void);
 
 void nmi(void);
+void set_nmi_latch(void);
 void irq(void);
 void reset(void);
 

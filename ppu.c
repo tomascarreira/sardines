@@ -236,7 +236,7 @@ bool clock_ppu(void) {
 	} else if (scanline == 241 && cycle == 1) {
 		ppustatus.v_blank = 1;
 		if (ppuctrl.nmi == 1) {
-			nmi();
+			set_nmi_latch();
 		}
 	}
 

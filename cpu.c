@@ -11,6 +11,8 @@ static uint8_t oamdma = 0;
 
 static size_t instr_clocks;
 
+static bool nmi_latch = false;
+
 const size_t opcode_cycles_table[256] = {
 		7, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
 		2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
@@ -91,6 +93,9 @@ void clock_cpu(void) {
 
 	if (instr_clocks) {
 		--instr_clocks;
+		if (nmi_latch) {
+			nmi();
+		}
 		return;
 	}
 	
@@ -200,6 +205,12 @@ void nmi(void) {
 	push(colapse_status());
 
 	cpu.pc = get_nmi_vector();
+
+	nmi_latch = false;
+}
+
+void set_nmi_latch(void) {
+	nmi_latch = true;
 }
 
 void irq(void) {
