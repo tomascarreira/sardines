@@ -128,14 +128,14 @@ fn decode(opcode: u8) -> Instruction {
         (0b01, 0b000, 0b110) => Instruction::Ora(AddressingMode::AbsoluteY),
         (0b01, 0b000, 0b111) => Instruction::Ora(AddressingMode::AbsoluteX),
 
-        (0b01 ,0b001, 0b000) => Instruction::And(AddressingMode::IndirectX),
-        (0b01 ,0b001, 0b001) => Instruction::And(AddressingMode::Zeropage),
-        (0b01 ,0b001, 0b010) => Instruction::And(AddressingMode::Immediate),
-        (0b01 ,0b001, 0b011) => Instruction::And(AddressingMode::Absolute),
-        (0b01 ,0b001, 0b100) => Instruction::And(AddressingMode::IndirectY),
-        (0b01 ,0b001, 0b101) => Instruction::And(AddressingMode::ZeropageX),
-        (0b01 ,0b001, 0b110) => Instruction::And(AddressingMode::AbsoluteY),
-        (0b01 ,0b001, 0b111) => Instruction::And(AddressingMode::AbsoluteX),
+        (0b01, 0b001, 0b000) => Instruction::And(AddressingMode::IndirectX),
+        (0b01, 0b001, 0b001) => Instruction::And(AddressingMode::Zeropage),
+        (0b01, 0b001, 0b010) => Instruction::And(AddressingMode::Immediate),
+        (0b01, 0b001, 0b011) => Instruction::And(AddressingMode::Absolute),
+        (0b01, 0b001, 0b100) => Instruction::And(AddressingMode::IndirectY),
+        (0b01, 0b001, 0b101) => Instruction::And(AddressingMode::ZeropageX),
+        (0b01, 0b001, 0b110) => Instruction::And(AddressingMode::AbsoluteY),
+        (0b01, 0b001, 0b111) => Instruction::And(AddressingMode::AbsoluteX),
 
         (0b01, 0b010, 0b000) => Instruction::Eor(AddressingMode::IndirectX),
         (0b01, 0b010, 0b001) => Instruction::Eor(AddressingMode::Zeropage),
@@ -282,6 +282,50 @@ fn decode(opcode: u8) -> Instruction {
         (0b00, 0b010, 0b000) => Instruction::Rti(AddressingMode::Implied),
 
         (0b00, 0b011, 0b000) => Instruction::Rts(AddressingMode::Implied),
+
+        (0b00, 0b000, 0b010) => Instruction::Php(AddressingMode::Implied),
+
+        (0b00, 0b001, 0b010) => Instruction::Plp(AddressingMode::Implied),
+
+        (0b00, 0b010, 0b010) => Instruction::Pha(AddressingMode::Implied),
+
+        (0b00, 0b011, 0b010) => Instruction::Pla(AddressingMode::Implied),
+
+        (0b00, 0b100, 0b010) => Instruction::Dey(AddressingMode::Implied),
+
+        (0b00, 0b101, 0b010) => Instruction::Tay(AddressingMode::Implied),
+
+        (0b00, 0b110, 0b010) => Instruction::Iny(AddressingMode::Implied),
+
+        (0b00, 0b111, 0b010) => Instruction::Inx(AddressingMode::Implied),
+
+        (0b00, 0b000, 0b110) => Instruction::Clc(AddressingMode::Implied),
+
+        (0b00, 0b001, 0b110) => Instruction::Sec(AddressingMode::Implied),
+
+        (0b00, 0b010, 0b110) => Instruction::Cli(AddressingMode::Implied),
+
+        (0b00, 0b011, 0b110) => Instruction::Sei(AddressingMode::Implied),
+
+        (0b00, 0b100, 0b110) => Instruction::Tya(AddressingMode::Implied),
+
+        (0b00, 0b101, 0b110) => Instruction::Clv(AddressingMode::Implied),
+
+        (0b00, 0b110, 0b110) => Instruction::Cld(AddressingMode::Implied),
+
+        (0b00, 0b111, 0b110) => Instruction::Sed(AddressingMode::Implied),
+
+        (0b10, 0b100, 0b010) => Instruction::Txa(AddressingMode::Implied),
+
+        (0b10, 0b100, 0b110) => Instruction::Txs(AddressingMode::Implied),
+
+        (0b10, 0b101, 0b010) => Instruction::Tax(AddressingMode::Implied),
+
+        (0b10, 0b101, 0b110) => Instruction::Tsx(AddressingMode::Implied),
+
+        (0b10, 0b110, 0b010) => Instruction::Dex(AddressingMode::Implied),
+
+        (0b10, 0b111, 0b010) => Instruction::Nop(AddressingMode::Implied),
 
         _ => Instruction::Illegal,
     }
