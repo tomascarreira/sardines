@@ -68,14 +68,6 @@ impl Cpu {
 
         self.pc += 1;
     }
-
-    fn fetch_immediate(&self, bus: &Bus) {
-        todo!()
-    }
-
-    fn fetch_zeropage(&self, bus: &Bus) {
-        todo!()
-    }
 }
 
 struct StatusFlag {
@@ -184,7 +176,7 @@ enum SubInstruction {
     FetchOperand,
     FetchAddressLow,
     FetchAddressHigh,
-    FetchPointerLow,
+    FetchPointer,
     ReadAddressToOperand,
     ReadAddressToPcl,
     ReadAddressToPch,
@@ -199,6 +191,7 @@ enum SubInstruction {
     AddYToAddressNoPageCrossing,
     AddXToPointerNoPageCrossing,
     FixAddressHigh,
+    CopyAddressToPc,
     Adc,
 }
 
@@ -551,7 +544,13 @@ fn instruction_recipe(
             vec![operation, SubInstruction::WriteOperandToAddress],
         ],
 
-        (AddressingMode::Absolute, InstructionType::Jmp) => todo!(),
+        (AddressingMode::Absolute, InstructionType::Jmp) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![
+                SubInstruction::FetchAddressHigh,
+                SubInstruction::CopyAddressToPc,
+            ],
+        ],
 
         (AddressingMode::AbsoluteX, InstructionType::Read) => vec![
             vec![SubInstruction::FetchAddressLow],
@@ -650,7 +649,7 @@ fn instruction_recipe(
         (AddressingMode::Relative, InstructionType::Other) => todo!(),
 
         (AddressingMode::IndirectX, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::FetchPointer],
             vec![
                 SubInstruction::ReadPointerToAddressLow,
                 SubInstruction::AddXToPointerNoPageCrossing,
@@ -662,7 +661,7 @@ fn instruction_recipe(
         ],
 
         (AddressingMode::IndirectX, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::FetchPointer],
             vec![
                 SubInstruction::ReadPointerToAddressLow,
                 SubInstruction::AddXToPointerNoPageCrossing,
@@ -676,7 +675,7 @@ fn instruction_recipe(
         ],
 
         (AddressingMode::IndirectX, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::FetchPointer],
             vec![
                 SubInstruction::ReadPointerToAddressLow,
                 SubInstruction::AddXToPointerNoPageCrossing,
@@ -687,7 +686,7 @@ fn instruction_recipe(
         ],
 
         (AddressingMode::IndirectY, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::FetchPointer],
             vec![SubInstruction::ReadPointerToAddressLow],
             vec![
                 SubInstruction::ReadPointerToAddressHigh,
@@ -702,7 +701,7 @@ fn instruction_recipe(
         ],
 
         (AddressingMode::IndirectY, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::FetchPointer],
             vec![SubInstruction::ReadPointerToAddressLow],
             vec![
                 SubInstruction::ReadPointerToAddressHigh,
@@ -719,7 +718,7 @@ fn instruction_recipe(
         ],
 
         (AddressingMode::IndirectY, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::FetchPointer],
             vec![SubInstruction::ReadPointerToAddressLow],
             vec![
                 SubInstruction::ReadPointerToAddressHigh,
