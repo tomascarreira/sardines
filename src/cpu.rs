@@ -1,3 +1,7 @@
+use std::collections::VecDeque;
+
+use crate::bus::Bus;
+
 pub struct Cpu {
     a: u8,
     x: u8,
@@ -5,6 +9,10 @@ pub struct Cpu {
     s: u8,
     p: StatusFlag,
     pc: u16,
+    sub_instr_list: VecDeque<Vec<SubInstruction>>,
+    operand: u8,
+    address: u16,
+    pointer: u16,
 }
 
 impl Cpu {
@@ -13,7 +21,7 @@ impl Cpu {
             a: 0,
             x: 0,
             y: 0,
-            s: 0xff,
+            s: 0xfd,
             p: StatusFlag {
                 carry: false,
                 zero: false,
@@ -22,8 +30,51 @@ impl Cpu {
                 overflow: false,
                 negative: false,
             },
+            // Fix: pc is gotten from the reset vector
             pc: 0,
+            sub_instr_list: VecDeque::from(vec![vec![SubInstruction::FetchOpcode]]),
+            operand: 0,
+            address: 0,
+            pointer: 0,
         }
+    }
+
+    pub fn cycle(&mut self, bus: &mut Bus) {
+        todo!()
+    }
+
+    fn adc(&mut self, value: u8) {
+        let res: u16 = self.a as u16 + value as u16 + self.p.carry as u16;
+
+        self.p.carry = res > 0xff;
+        self.p.zero = res == 0;
+        self.p.overflow = (((res as u8 ^ self.a) & (res as u8 ^ value)) >> 7) != 0;
+        self.p.negative = (res as u8 >> 7) != 0;
+
+        self.a = res as u8;
+    }
+
+    fn fetch_opcode(&mut self, bus: &Bus) {
+        match decode(bus.read(self.pc)) {
+            Instruction::Illegal => {
+                println!("Illegal opcode decoded");
+                std::process::exit(1);
+            }
+
+            Instruction::Adc(addressing_mode) => (),
+
+            _ => (),
+        };
+
+        self.pc += 1;
+    }
+
+    fn fetch_immediate(&self, bus: &Bus) {
+        todo!()
+    }
+
+    fn fetch_zeropage(&self, bus: &Bus) {
+        todo!()
     }
 }
 
@@ -110,6 +161,45 @@ enum AddressingMode {
     Zeropage,
     ZeropageX,
     ZeropageY,
+}
+
+enum InstructionType {
+    Read,
+    ReadModifyWrite,
+    Write,
+    Brk,
+    Rti,
+    Rts,
+    Pha,
+    Php,
+    Pla,
+    Plp,
+    Jsr,
+    Jmp,
+    Other,
+}
+
+enum SubInstruction {
+    FetchOpcode,
+    FetchOperand,
+    FetchAddressLow,
+    FetchAddressHigh,
+    FetchPointerLow,
+    ReadAddressToOperand,
+    ReadAddressToPcl,
+    ReadAddressToPch,
+    ReadPointerToAddressLow,
+    ReadPointerToAddressHigh,
+    DummyRead,
+    LoadAccumulator,
+    WriteOperandToAddress,
+    AddXToAddress,
+    AddYToAddress,
+    AddXToAddressNoPageCrossing,
+    AddYToAddressNoPageCrossing,
+    AddXToPointerNoPageCrossing,
+    FixAddressHigh,
+    Adc,
 }
 
 // Fix: return error  (maybe use thiserror or just use anyhow)
@@ -331,6 +421,236 @@ fn decode(opcode: u8) -> Instruction {
     }
 }
 
-enum DecodeError {
-    Default,
+fn instruction_recipe(
+    addressing_mode: AddressingMode,
+    instruction_type: InstructionType,
+    operation: SubInstruction,
+) -> Vec<Vec<SubInstruction>> {
+    match (addressing_mode, instruction_type) {
+        (AddressingMode::Implied, InstructionType::Other) => vec![
+            vec![SubInstruction::DummyRead],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::Accumulator, InstructionType::Other) => vec![
+            vec![SubInstruction::DummyRead],
+            vec![
+                SubInstruction::FetchOpcode,
+                operation,
+                SubInstruction::LoadAccumulator,
+            ],
+        ],
+
+        (AddressingMode::Immediate, InstructionType::Other) => vec![
+            vec![SubInstruction::FetchOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::Zeropage, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::Zeropage, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::Zeropage, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::ZeropageX, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::AddXToAddressNoPageCrossing],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::ZeropageX, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::AddXToAddressNoPageCrossing],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::ZeropageX, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::AddXToAddressNoPageCrossing],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::ZeropageY, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::AddYToAddressNoPageCrossing],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::ZeropageY, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::AddYToAddressNoPageCrossing],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::ZeropageY, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::AddYToAddressNoPageCrossing],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::Absolute, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::Absolute, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+        ],
+
+        (AddressingMode::Absolute, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+        ],
+
+        (AddressingMode::Absolute, InstructionType::Jmp) => todo!(),
+
+        (AddressingMode::AbsoluteX, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh, SubInstruction::AddXToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::AbsoluteX, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh, SubInstruction::AddXToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::AbsoluteX, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh, SubInstruction::AddXToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+        ],
+
+        (AddressingMode::AbsoluteY, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh, SubInstruction::AddYToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::AbsoluteY, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh, SubInstruction::AddYToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::AbsoluteY, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh, SubInstruction::AddYToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+        ],
+
+        (AddressingMode::Indirect, InstructionType::Jmp) => vec![
+            vec![SubInstruction::FetchAddressLow],
+            vec![SubInstruction::FetchAddressHigh],
+            vec![SubInstruction::ReadAddressToPcl],
+            vec![SubInstruction::ReadAddressToPch],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::Relative, InstructionType::Other) => todo!(),
+
+        (AddressingMode::IndirectX, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::ReadPointerToAddressLow, SubInstruction::AddXToPointerNoPageCrossing],
+            vec![SubInstruction::ReadPointerToAddressLow],
+            vec![SubInstruction::ReadPointerToAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::IndirectX, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::ReadPointerToAddressLow, SubInstruction::AddXToPointerNoPageCrossing],
+            vec![SubInstruction::ReadPointerToAddressLow],
+            vec![SubInstruction::ReadPointerToAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::IndirectX, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::ReadPointerToAddressLow, SubInstruction::AddXToPointerNoPageCrossing],
+            vec![SubInstruction::ReadPointerToAddressLow],
+            vec![SubInstruction::ReadPointerToAddressHigh],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+        ],
+
+        (AddressingMode::IndirectY, InstructionType::Read) => vec![
+            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::ReadPointerToAddressLow],
+            vec![SubInstruction::ReadPointerToAddressHigh, SubInstruction::AddYToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::FetchOpcode, operation],
+        ],
+
+        (AddressingMode::IndirectY, InstructionType::ReadModifyWrite) => vec![
+            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::ReadPointerToAddressLow],
+            vec![SubInstruction::ReadPointerToAddressHigh, SubInstruction::AddYToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![SubInstruction::ReadAddressToOperand],
+            vec![SubInstruction::WriteOperandToAddress, operation],
+            vec![SubInstruction::WriteOperandToAddress],
+            vec![SubInstruction::FetchOpcode],
+        ],
+
+        (AddressingMode::IndirectY, InstructionType::Write) => vec![
+            vec![SubInstruction::FetchPointerLow],
+            vec![SubInstruction::ReadPointerToAddressLow],
+            vec![SubInstruction::ReadPointerToAddressHigh, SubInstruction::AddYToAddress],
+            vec![SubInstruction::ReadAddressToOperand, SubInstruction::FixAddressHigh],
+            vec![operation, SubInstruction::WriteOperandToAddress],
+        ],
+
+        _ => panic!(),
+    }
 }
