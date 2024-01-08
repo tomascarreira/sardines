@@ -1,12 +1,7 @@
-use bus::Bus;
-use cpu::Cpu;
-
 mod bus;
+mod cartridge;
 mod cpu;
+mod nes;
+mod ppu;
 
-fn main() {
-    let mut bus = Bus;
-    let mut cpu = Cpu::new();
-
-    cpu.cycle(&mut bus);
-}
+fn main() {}

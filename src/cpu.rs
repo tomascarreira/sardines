@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use crate::bus::Bus;
 
 pub struct Cpu {
@@ -9,10 +7,11 @@ pub struct Cpu {
     s: u8,
     p: StatusFlag,
     pc: u16,
-    sub_instr_list: VecDeque<Vec<SubInstruction>>,
+    opcode: Opcode,
+    curr_instr: Instr,
+    next_instr: Instr,
     operand: u8,
     address: u16,
-    pointer: u16,
 }
 
 impl Cpu {
@@ -30,43 +29,80 @@ impl Cpu {
                 overflow: false,
                 negative: false,
             },
-            // Fix: pc is gotten from the reset vector
+            // Fix: pc is got from the reset vector
             pc: 0,
-            sub_instr_list: VecDeque::from(vec![vec![SubInstruction::FetchOpcode]]),
+            opcode: Opcode::Brk {
+                addressing_mode: AddressingMode::Implied,
+            },
+            curr_instr: Instr::FetchAddressHigh,
+            next_instr: Instr::FetchOpcode,
             operand: 0,
             address: 0,
-            pointer: 0,
         }
     }
 
     pub fn cycle(&mut self, bus: &mut Bus) {
-        todo!()
-    }
+        self.curr_instr = self.next_instr;
 
-    fn adc(&mut self, value: u8) {
-        let res: u16 = self.a as u16 + value as u16 + self.p.carry as u16;
+        match self.curr_instr {
+            Instr::FetchOpcode => {
+                self.opcode = decode(bus.read(self.pc));
+                match self.opcode.addressing_mode() {
+                    Some(addressing_mode) => match addressing_mode {
+                        AddressingMode::Implied | AddressingMode::Accumulator => {
+                            self.next_instr = Instr::DummyRead
+                        }
+                        AddressingMode::Immediate
+                        | AddressingMode::Zeropage
+                        | AddressingMode::ZeropageX
+                        | AddressingMode::ZeropageY
+                        | AddressingMode::IndirectX
+                        | AddressingMode::IndirectY => self.next_instr = Instr::FetchOperand,
+                        AddressingMode::Absolute
+                        | AddressingMode::AbsoluteX
+                        | AddressingMode::AbsoluteY
+                        | AddressingMode::Indirect
+                        | AddressingMode::Relative => self.next_instr = Instr::FetchAddressLow,
+                    },
 
-        self.p.carry = res > 0xff;
-        self.p.zero = res == 0;
-        self.p.overflow = (((res as u8 ^ self.a) & (res as u8 ^ value)) >> 7) != 0;
-        self.p.negative = (res as u8 >> 7) != 0;
+                    // TODO Do real error handling
+                    None => panic!("Could not get addressing mode."),
+                }
 
-        self.a = res as u8;
-    }
-
-    fn fetch_opcode(&mut self, bus: &Bus) {
-        match decode(bus.read(self.pc)) {
-            Instruction::Illegal => {
-                println!("Illegal opcode decoded");
-                std::process::exit(1);
+                self.pc += 1;
             }
+            Instr::DummyRead => {
+                let _ = bus.read(self.pc);
+                // Do opcode
+                todo!();
+            }
+            Instr::FetchOperand => {
+                match self
+                    .opcode
+                    .addressing_mode()
+                    .expect("Opcode has an addressing mode.")
+                {
+                    AddressingMode::Immediate => {
+                        self.operand = bus.read(self.pc);
+                        // Do opcode
+                        todo!();
+                        self.next_instr = Instr::FetchOpcode;
+                    }
+                    AddressingMode::Zeropage => {
+                        self.address = bus.read(self.pc) as u16;
+                        self.next_instr = Instr::ReadAddressToOperand;
+                    }
+                    AddressingMode::ZeropageX => todo!(),
+                    AddressingMode::ZeropageY => todo!(),
+                    AddressingMode::IndirectX => todo!(),
+                    AddressingMode::IndirectY => todo!(),
+                    _ => panic!("Cannot be other addressing mode."),
+                }
 
-            Instruction::Adc(addressing_mode) => (),
-
-            _ => (),
-        };
-
-        self.pc += 1;
+                self.pc += 1;
+            }
+            _ => todo!(),
+        }
     }
 }
 
@@ -79,66 +115,133 @@ struct StatusFlag {
     negative: bool,
 }
 
-enum Instruction {
+// Fix: an instruction can havae an addressing mode that its not possible
+// Instruction::Brk(Acumulator)
+enum Opcode {
     Illegal,
-    Adc(AddressingMode),
-    And(AddressingMode),
-    Asl(AddressingMode),
-    Bcc(AddressingMode),
-    Bcs(AddressingMode),
-    Beq(AddressingMode),
-    Bit(AddressingMode),
-    Bmi(AddressingMode),
-    Bne(AddressingMode),
-    Bpl(AddressingMode),
-    Brk(AddressingMode),
-    Bvc(AddressingMode),
-    Bvs(AddressingMode),
-    Clc(AddressingMode),
-    Cld(AddressingMode),
-    Cli(AddressingMode),
-    Clv(AddressingMode),
-    Cmp(AddressingMode),
-    Cpx(AddressingMode),
-    Cpy(AddressingMode),
-    Dec(AddressingMode),
-    Dex(AddressingMode),
-    Dey(AddressingMode),
-    Eor(AddressingMode),
-    Inc(AddressingMode),
-    Inx(AddressingMode),
-    Iny(AddressingMode),
-    Jmp(AddressingMode),
-    Jsr(AddressingMode),
-    Lda(AddressingMode),
-    Ldx(AddressingMode),
-    Ldy(AddressingMode),
-    Lsr(AddressingMode),
-    Nop(AddressingMode),
-    Ora(AddressingMode),
-    Pha(AddressingMode),
-    Php(AddressingMode),
-    Pla(AddressingMode),
-    Plp(AddressingMode),
-    Rol(AddressingMode),
-    Ror(AddressingMode),
-    Rti(AddressingMode),
-    Rts(AddressingMode),
-    Sbc(AddressingMode),
-    Sec(AddressingMode),
-    Sed(AddressingMode),
-    Sei(AddressingMode),
-    Sta(AddressingMode),
-    Stx(AddressingMode),
-    Sty(AddressingMode),
-    Tax(AddressingMode),
-    Tay(AddressingMode),
-    Tsx(AddressingMode),
-    Txa(AddressingMode),
-    Txs(AddressingMode),
-    Tya(AddressingMode),
+    Adc { addressing_mode: AddressingMode },
+    And { addressing_mode: AddressingMode },
+    Asl { addressing_mode: AddressingMode },
+    Bcc { addressing_mode: AddressingMode },
+    Bcs { addressing_mode: AddressingMode },
+    Beq { addressing_mode: AddressingMode },
+    Bit { addressing_mode: AddressingMode },
+    Bmi { addressing_mode: AddressingMode },
+    Bne { addressing_mode: AddressingMode },
+    Bpl { addressing_mode: AddressingMode },
+    Brk { addressing_mode: AddressingMode },
+    Bvc { addressing_mode: AddressingMode },
+    Bvs { addressing_mode: AddressingMode },
+    Clc { addressing_mode: AddressingMode },
+    Cld { addressing_mode: AddressingMode },
+    Cli { addressing_mode: AddressingMode },
+    Clv { addressing_mode: AddressingMode },
+    Cmp { addressing_mode: AddressingMode },
+    Cpx { addressing_mode: AddressingMode },
+    Cpy { addressing_mode: AddressingMode },
+    Dec { addressing_mode: AddressingMode },
+    Dex { addressing_mode: AddressingMode },
+    Dey { addressing_mode: AddressingMode },
+    Eor { addressing_mode: AddressingMode },
+    Inc { addressing_mode: AddressingMode },
+    Inx { addressing_mode: AddressingMode },
+    Iny { addressing_mode: AddressingMode },
+    Jmp { addressing_mode: AddressingMode },
+    Jsr { addressing_mode: AddressingMode },
+    Lda { addressing_mode: AddressingMode },
+    Ldx { addressing_mode: AddressingMode },
+    Ldy { addressing_mode: AddressingMode },
+    Lsr { addressing_mode: AddressingMode },
+    Nop { addressing_mode: AddressingMode },
+    Ora { addressing_mode: AddressingMode },
+    Pha { addressing_mode: AddressingMode },
+    Php { addressing_mode: AddressingMode },
+    Pla { addressing_mode: AddressingMode },
+    Plp { addressing_mode: AddressingMode },
+    Rol { addressing_mode: AddressingMode },
+    Ror { addressing_mode: AddressingMode },
+    Rti { addressing_mode: AddressingMode },
+    Rts { addressing_mode: AddressingMode },
+    Sbc { addressing_mode: AddressingMode },
+    Sec { addressing_mode: AddressingMode },
+    Sed { addressing_mode: AddressingMode },
+    Sei { addressing_mode: AddressingMode },
+    Sta { addressing_mode: AddressingMode },
+    Stx { addressing_mode: AddressingMode },
+    Sty { addressing_mode: AddressingMode },
+    Tax { addressing_mode: AddressingMode },
+    Tay { addressing_mode: AddressingMode },
+    Tsx { addressing_mode: AddressingMode },
+    Txa { addressing_mode: AddressingMode },
+    Txs { addressing_mode: AddressingMode },
+    Tya { addressing_mode: AddressingMode },
 }
 
+impl Opcode {
+    fn addressing_mode(&self) -> Option<AddressingMode> {
+        match self {
+            Opcode::Illegal => None,
+            Opcode::Adc { addressing_mode } => Some(*addressing_mode),
+            Opcode::And { addressing_mode } => Some(*addressing_mode),
+            Opcode::Asl { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bcc { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bcs { addressing_mode } => Some(*addressing_mode),
+            Opcode::Beq { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bit { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bmi { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bne { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bpl { addressing_mode } => Some(*addressing_mode),
+            Opcode::Brk { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bvc { addressing_mode } => Some(*addressing_mode),
+            Opcode::Bvs { addressing_mode } => Some(*addressing_mode),
+            Opcode::Clc { addressing_mode } => Some(*addressing_mode),
+            Opcode::Cld { addressing_mode } => Some(*addressing_mode),
+            Opcode::Cli { addressing_mode } => Some(*addressing_mode),
+            Opcode::Clv { addressing_mode } => Some(*addressing_mode),
+            Opcode::Cmp { addressing_mode } => Some(*addressing_mode),
+            Opcode::Cpx { addressing_mode } => Some(*addressing_mode),
+            Opcode::Cpy { addressing_mode } => Some(*addressing_mode),
+            Opcode::Dec { addressing_mode } => Some(*addressing_mode),
+            Opcode::Dex { addressing_mode } => Some(*addressing_mode),
+            Opcode::Dey { addressing_mode } => Some(*addressing_mode),
+            Opcode::Eor { addressing_mode } => Some(*addressing_mode),
+            Opcode::Inc { addressing_mode } => Some(*addressing_mode),
+            Opcode::Inx { addressing_mode } => Some(*addressing_mode),
+            Opcode::Iny { addressing_mode } => Some(*addressing_mode),
+            Opcode::Jmp { addressing_mode } => Some(*addressing_mode),
+            Opcode::Jsr { addressing_mode } => Some(*addressing_mode),
+            Opcode::Lda { addressing_mode } => Some(*addressing_mode),
+            Opcode::Ldx { addressing_mode } => Some(*addressing_mode),
+            Opcode::Ldy { addressing_mode } => Some(*addressing_mode),
+            Opcode::Lsr { addressing_mode } => Some(*addressing_mode),
+            Opcode::Nop { addressing_mode } => Some(*addressing_mode),
+            Opcode::Ora { addressing_mode } => Some(*addressing_mode),
+            Opcode::Pha { addressing_mode } => Some(*addressing_mode),
+            Opcode::Php { addressing_mode } => Some(*addressing_mode),
+            Opcode::Pla { addressing_mode } => Some(*addressing_mode),
+            Opcode::Plp { addressing_mode } => Some(*addressing_mode),
+            Opcode::Rol { addressing_mode } => Some(*addressing_mode),
+            Opcode::Ror { addressing_mode } => Some(*addressing_mode),
+            Opcode::Rti { addressing_mode } => Some(*addressing_mode),
+            Opcode::Rts { addressing_mode } => Some(*addressing_mode),
+            Opcode::Sbc { addressing_mode } => Some(*addressing_mode),
+            Opcode::Sec { addressing_mode } => Some(*addressing_mode),
+            Opcode::Sed { addressing_mode } => Some(*addressing_mode),
+            Opcode::Sei { addressing_mode } => Some(*addressing_mode),
+            Opcode::Sta { addressing_mode } => Some(*addressing_mode),
+            Opcode::Stx { addressing_mode } => Some(*addressing_mode),
+            Opcode::Sty { addressing_mode } => Some(*addressing_mode),
+            Opcode::Tax { addressing_mode } => Some(*addressing_mode),
+            Opcode::Tay { addressing_mode } => Some(*addressing_mode),
+            Opcode::Tsx { addressing_mode } => Some(*addressing_mode),
+            Opcode::Txa { addressing_mode } => Some(*addressing_mode),
+            Opcode::Txs { addressing_mode } => Some(*addressing_mode),
+            Opcode::Tya { addressing_mode } => Some(*addressing_mode),
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
 enum AddressingMode {
     Accumulator,
     Absolute,
@@ -171,7 +274,8 @@ enum InstructionType {
     Other,
 }
 
-enum SubInstruction {
+#[derive(Copy, Clone)]
+enum Instr {
     FetchOpcode,
     FetchOperand,
     FetchAddressLow,
@@ -192,545 +296,525 @@ enum SubInstruction {
     AddXToPointerNoPageCrossing,
     FixAddressHigh,
     CopyAddressToPc,
-    Adc,
 }
 
 // Fix: return error  (maybe use thiserror or just use anyhow)
-fn decode(opcode: u8) -> Instruction {
+fn decode(opcode: u8) -> Opcode {
     let aaa = opcode >> 5;
     let bbb = (opcode & 0b00011100) >> 2;
     let cc = opcode & 0b00000011;
 
     match (cc, aaa, bbb) {
-        (0b01, 0b000, 0b000) => Instruction::Ora(AddressingMode::IndirectX),
-        (0b01, 0b000, 0b001) => Instruction::Ora(AddressingMode::Zeropage),
-        (0b01, 0b000, 0b010) => Instruction::Ora(AddressingMode::Immediate),
-        (0b01, 0b000, 0b011) => Instruction::Ora(AddressingMode::Absolute),
-        (0b01, 0b000, 0b100) => Instruction::Ora(AddressingMode::IndirectY),
-        (0b01, 0b000, 0b101) => Instruction::Ora(AddressingMode::ZeropageX),
-        (0b01, 0b000, 0b110) => Instruction::Ora(AddressingMode::AbsoluteY),
-        (0b01, 0b000, 0b111) => Instruction::Ora(AddressingMode::AbsoluteX),
-
-        (0b01, 0b001, 0b000) => Instruction::And(AddressingMode::IndirectX),
-        (0b01, 0b001, 0b001) => Instruction::And(AddressingMode::Zeropage),
-        (0b01, 0b001, 0b010) => Instruction::And(AddressingMode::Immediate),
-        (0b01, 0b001, 0b011) => Instruction::And(AddressingMode::Absolute),
-        (0b01, 0b001, 0b100) => Instruction::And(AddressingMode::IndirectY),
-        (0b01, 0b001, 0b101) => Instruction::And(AddressingMode::ZeropageX),
-        (0b01, 0b001, 0b110) => Instruction::And(AddressingMode::AbsoluteY),
-        (0b01, 0b001, 0b111) => Instruction::And(AddressingMode::AbsoluteX),
-
-        (0b01, 0b010, 0b000) => Instruction::Eor(AddressingMode::IndirectX),
-        (0b01, 0b010, 0b001) => Instruction::Eor(AddressingMode::Zeropage),
-        (0b01, 0b010, 0b010) => Instruction::Eor(AddressingMode::Immediate),
-        (0b01, 0b010, 0b011) => Instruction::Eor(AddressingMode::Absolute),
-        (0b01, 0b010, 0b100) => Instruction::Eor(AddressingMode::IndirectY),
-        (0b01, 0b010, 0b101) => Instruction::Eor(AddressingMode::ZeropageX),
-        (0b01, 0b010, 0b110) => Instruction::Eor(AddressingMode::AbsoluteY),
-        (0b01, 0b010, 0b111) => Instruction::Eor(AddressingMode::AbsoluteX),
-
-        (0b01, 0b011, 0b000) => Instruction::Adc(AddressingMode::IndirectX),
-        (0b01, 0b011, 0b001) => Instruction::Adc(AddressingMode::Zeropage),
-        (0b01, 0b011, 0b010) => Instruction::Adc(AddressingMode::Immediate),
-        (0b01, 0b011, 0b011) => Instruction::Adc(AddressingMode::Absolute),
-        (0b01, 0b011, 0b100) => Instruction::Adc(AddressingMode::IndirectY),
-        (0b01, 0b011, 0b101) => Instruction::Adc(AddressingMode::ZeropageX),
-        (0b01, 0b011, 0b110) => Instruction::Adc(AddressingMode::AbsoluteY),
-        (0b01, 0b011, 0b111) => Instruction::Adc(AddressingMode::AbsoluteX),
-
-        (0b01, 0b100, 0b000) => Instruction::Sta(AddressingMode::IndirectX),
-        (0b01, 0b100, 0b001) => Instruction::Sta(AddressingMode::Zeropage),
-        (0b01, 0b100, 0b011) => Instruction::Sta(AddressingMode::Absolute),
-        (0b01, 0b100, 0b100) => Instruction::Sta(AddressingMode::IndirectY),
-        (0b01, 0b100, 0b101) => Instruction::Sta(AddressingMode::ZeropageX),
-        (0b01, 0b100, 0b110) => Instruction::Sta(AddressingMode::AbsoluteY),
-        (0b01, 0b100, 0b111) => Instruction::Sta(AddressingMode::AbsoluteX),
-
-        (0b01, 0b101, 0b000) => Instruction::Lda(AddressingMode::IndirectX),
-        (0b01, 0b101, 0b001) => Instruction::Lda(AddressingMode::Zeropage),
-        (0b01, 0b101, 0b010) => Instruction::Lda(AddressingMode::Immediate),
-        (0b01, 0b101, 0b011) => Instruction::Lda(AddressingMode::Absolute),
-        (0b01, 0b101, 0b100) => Instruction::Lda(AddressingMode::IndirectY),
-        (0b01, 0b101, 0b101) => Instruction::Lda(AddressingMode::ZeropageX),
-        (0b01, 0b101, 0b110) => Instruction::Lda(AddressingMode::AbsoluteY),
-        (0b01, 0b101, 0b111) => Instruction::Lda(AddressingMode::AbsoluteX),
-
-        (0b01, 0b110, 0b000) => Instruction::Cmp(AddressingMode::IndirectX),
-        (0b01, 0b110, 0b001) => Instruction::Cmp(AddressingMode::Zeropage),
-        (0b01, 0b110, 0b010) => Instruction::Cmp(AddressingMode::Immediate),
-        (0b01, 0b110, 0b011) => Instruction::Cmp(AddressingMode::Absolute),
-        (0b01, 0b110, 0b100) => Instruction::Cmp(AddressingMode::IndirectY),
-        (0b01, 0b110, 0b101) => Instruction::Cmp(AddressingMode::ZeropageX),
-        (0b01, 0b110, 0b110) => Instruction::Cmp(AddressingMode::AbsoluteY),
-        (0b01, 0b110, 0b111) => Instruction::Cmp(AddressingMode::AbsoluteX),
-
-        (0b01, 0b111, 0b000) => Instruction::Sbc(AddressingMode::IndirectX),
-        (0b01, 0b111, 0b001) => Instruction::Sbc(AddressingMode::Zeropage),
-        (0b01, 0b111, 0b010) => Instruction::Sbc(AddressingMode::Immediate),
-        (0b01, 0b111, 0b011) => Instruction::Sbc(AddressingMode::Absolute),
-        (0b01, 0b111, 0b100) => Instruction::Sbc(AddressingMode::IndirectY),
-        (0b01, 0b111, 0b101) => Instruction::Sbc(AddressingMode::ZeropageX),
-        (0b01, 0b111, 0b110) => Instruction::Sbc(AddressingMode::AbsoluteY),
-        (0b01, 0b111, 0b111) => Instruction::Sbc(AddressingMode::AbsoluteX),
-
-        (0b10, 0b000, 0b001) => Instruction::Asl(AddressingMode::Zeropage),
-        (0b10, 0b000, 0b010) => Instruction::Asl(AddressingMode::Accumulator),
-        (0b10, 0b000, 0b011) => Instruction::Asl(AddressingMode::Absolute),
-        (0b10, 0b000, 0b101) => Instruction::Asl(AddressingMode::ZeropageX),
-        (0b10, 0b000, 0b111) => Instruction::Asl(AddressingMode::AbsoluteX),
-
-        (0b10, 0b001, 0b001) => Instruction::Rol(AddressingMode::Zeropage),
-        (0b10, 0b001, 0b010) => Instruction::Rol(AddressingMode::Accumulator),
-        (0b10, 0b001, 0b011) => Instruction::Rol(AddressingMode::Absolute),
-        (0b10, 0b001, 0b101) => Instruction::Rol(AddressingMode::ZeropageX),
-        (0b10, 0b001, 0b111) => Instruction::Rol(AddressingMode::AbsoluteX),
-
-        (0b10, 0b010, 0b001) => Instruction::Lsr(AddressingMode::Zeropage),
-        (0b10, 0b010, 0b010) => Instruction::Lsr(AddressingMode::Accumulator),
-        (0b10, 0b010, 0b011) => Instruction::Lsr(AddressingMode::Absolute),
-        (0b10, 0b010, 0b101) => Instruction::Lsr(AddressingMode::ZeropageX),
-        (0b10, 0b010, 0b111) => Instruction::Lsr(AddressingMode::AbsoluteX),
-
-        (0b10, 0b011, 0b001) => Instruction::Ror(AddressingMode::Zeropage),
-        (0b10, 0b011, 0b010) => Instruction::Ror(AddressingMode::Accumulator),
-        (0b10, 0b011, 0b011) => Instruction::Ror(AddressingMode::Absolute),
-        (0b10, 0b011, 0b101) => Instruction::Ror(AddressingMode::ZeropageX),
-        (0b10, 0b011, 0b111) => Instruction::Ror(AddressingMode::AbsoluteX),
-
-        (0b10, 0b100, 0b001) => Instruction::Stx(AddressingMode::Zeropage),
-        (0b10, 0b100, 0b011) => Instruction::Stx(AddressingMode::Absolute),
-        (0b10, 0b100, 0b101) => Instruction::Stx(AddressingMode::ZeropageY),
-
-        (0b10, 0b101, 0b000) => Instruction::Ldx(AddressingMode::Immediate),
-        (0b10, 0b101, 0b001) => Instruction::Ldx(AddressingMode::Zeropage),
-        (0b10, 0b101, 0b011) => Instruction::Ldx(AddressingMode::Absolute),
-        (0b10, 0b101, 0b101) => Instruction::Ldx(AddressingMode::ZeropageY),
-        (0b10, 0b101, 0b111) => Instruction::Ldx(AddressingMode::AbsoluteY),
-
-        (0b10, 0b110, 0b001) => Instruction::Dec(AddressingMode::Zeropage),
-        (0b10, 0b110, 0b011) => Instruction::Dec(AddressingMode::Absolute),
-        (0b10, 0b110, 0b101) => Instruction::Dec(AddressingMode::ZeropageX),
-        (0b10, 0b110, 0b111) => Instruction::Dec(AddressingMode::AbsoluteX),
-
-        (0b10, 0b111, 0b001) => Instruction::Inc(AddressingMode::Zeropage),
-        (0b10, 0b111, 0b011) => Instruction::Inc(AddressingMode::Absolute),
-        (0b10, 0b111, 0b101) => Instruction::Inc(AddressingMode::ZeropageX),
-        (0b10, 0b111, 0b111) => Instruction::Inc(AddressingMode::AbsoluteX),
-
-        (0b00, 0b001, 0b001) => Instruction::Bit(AddressingMode::Zeropage),
-        (0b00, 0b001, 0b011) => Instruction::Bit(AddressingMode::Absolute),
-
-        (0b00, 0b010, 0b011) => Instruction::Jmp(AddressingMode::Absolute),
-
-        (0b00, 0b011, 0b011) => Instruction::Jmp(AddressingMode::Indirect),
-
-        (0b00, 0b100, 0b001) => Instruction::Sty(AddressingMode::Zeropage),
-        (0b00, 0b100, 0b011) => Instruction::Sty(AddressingMode::Absolute),
-        (0b00, 0b100, 0b101) => Instruction::Sty(AddressingMode::ZeropageX),
-
-        (0b00, 0b101, 0b000) => Instruction::Ldy(AddressingMode::Absolute),
-        (0b00, 0b101, 0b001) => Instruction::Ldy(AddressingMode::Zeropage),
-        (0b00, 0b101, 0b011) => Instruction::Ldy(AddressingMode::Absolute),
-        (0b00, 0b101, 0b101) => Instruction::Ldy(AddressingMode::ZeropageX),
-        (0b00, 0b101, 0b111) => Instruction::Ldy(AddressingMode::AbsoluteX),
-
-        (0b00, 0b110, 0b000) => Instruction::Cpy(AddressingMode::Immediate),
-        (0b00, 0b110, 0b001) => Instruction::Cpy(AddressingMode::Zeropage),
-        (0b00, 0b110, 0b011) => Instruction::Cpy(AddressingMode::Absolute),
-
-        (0b00, 0b111, 0b000) => Instruction::Cpx(AddressingMode::Immediate),
-        (0b00, 0b111, 0b001) => Instruction::Cpx(AddressingMode::Zeropage),
-        (0b00, 0b111, 0b011) => Instruction::Cpx(AddressingMode::Absolute),
-
-        (0b00, 0b000, 0b100) => Instruction::Bpl(AddressingMode::Implied),
-
-        (0b00, 0b001, 0b100) => Instruction::Bmi(AddressingMode::Implied),
-
-        (0b00, 0b010, 0b100) => Instruction::Bvc(AddressingMode::Implied),
-
-        (0b00, 0b011, 0b100) => Instruction::Bvs(AddressingMode::Implied),
-
-        (0b00, 0b100, 0b100) => Instruction::Bcc(AddressingMode::Implied),
-
-        (0b00, 0b101, 0b100) => Instruction::Bcs(AddressingMode::Implied),
-
-        (0b00, 0b110, 0b100) => Instruction::Bne(AddressingMode::Implied),
-
-        (0b00, 0b111, 0b100) => Instruction::Beq(AddressingMode::Implied),
-
-        (0b00, 0b000, 0b000) => Instruction::Brk(AddressingMode::Implied),
-
-        (0b00, 0b001, 0b000) => Instruction::Jsr(AddressingMode::Absolute),
-
-        (0b00, 0b010, 0b000) => Instruction::Rti(AddressingMode::Implied),
-
-        (0b00, 0b011, 0b000) => Instruction::Rts(AddressingMode::Implied),
-
-        (0b00, 0b000, 0b010) => Instruction::Php(AddressingMode::Implied),
-
-        (0b00, 0b001, 0b010) => Instruction::Plp(AddressingMode::Implied),
-
-        (0b00, 0b010, 0b010) => Instruction::Pha(AddressingMode::Implied),
-
-        (0b00, 0b011, 0b010) => Instruction::Pla(AddressingMode::Implied),
-
-        (0b00, 0b100, 0b010) => Instruction::Dey(AddressingMode::Implied),
-
-        (0b00, 0b101, 0b010) => Instruction::Tay(AddressingMode::Implied),
-
-        (0b00, 0b110, 0b010) => Instruction::Iny(AddressingMode::Implied),
-
-        (0b00, 0b111, 0b010) => Instruction::Inx(AddressingMode::Implied),
-
-        (0b00, 0b000, 0b110) => Instruction::Clc(AddressingMode::Implied),
-
-        (0b00, 0b001, 0b110) => Instruction::Sec(AddressingMode::Implied),
-
-        (0b00, 0b010, 0b110) => Instruction::Cli(AddressingMode::Implied),
-
-        (0b00, 0b011, 0b110) => Instruction::Sei(AddressingMode::Implied),
-
-        (0b00, 0b100, 0b110) => Instruction::Tya(AddressingMode::Implied),
-
-        (0b00, 0b101, 0b110) => Instruction::Clv(AddressingMode::Implied),
-
-        (0b00, 0b110, 0b110) => Instruction::Cld(AddressingMode::Implied),
-
-        (0b00, 0b111, 0b110) => Instruction::Sed(AddressingMode::Implied),
-
-        (0b10, 0b100, 0b010) => Instruction::Txa(AddressingMode::Implied),
-
-        (0b10, 0b100, 0b110) => Instruction::Txs(AddressingMode::Implied),
-
-        (0b10, 0b101, 0b010) => Instruction::Tax(AddressingMode::Implied),
-
-        (0b10, 0b101, 0b110) => Instruction::Tsx(AddressingMode::Implied),
-
-        (0b10, 0b110, 0b010) => Instruction::Dex(AddressingMode::Implied),
-
-        (0b10, 0b111, 0b010) => Instruction::Nop(AddressingMode::Implied),
-
-        _ => Instruction::Illegal,
-    }
-}
-
-fn instruction_recipe(
-    addressing_mode: AddressingMode,
-    instruction_type: InstructionType,
-    operation: SubInstruction,
-) -> Vec<Vec<SubInstruction>> {
-    match (addressing_mode, instruction_type) {
-        (AddressingMode::Implied, InstructionType::Other) => vec![
-            vec![SubInstruction::DummyRead],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::Accumulator, InstructionType::Other) => vec![
-            vec![SubInstruction::DummyRead],
-            vec![
-                SubInstruction::FetchOpcode,
-                operation,
-                SubInstruction::LoadAccumulator,
-            ],
-        ],
-
-        (AddressingMode::Immediate, InstructionType::Other) => vec![
-            vec![SubInstruction::FetchOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::Zeropage, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::Zeropage, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::Zeropage, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::ZeropageX, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::AddXToAddressNoPageCrossing,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::ZeropageX, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::AddXToAddressNoPageCrossing,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::ZeropageX, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::AddXToAddressNoPageCrossing,
-            ],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::ZeropageY, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::AddYToAddressNoPageCrossing,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::ZeropageY, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::AddYToAddressNoPageCrossing,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::ZeropageY, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::AddYToAddressNoPageCrossing,
-            ],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::Absolute, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![SubInstruction::FetchAddressHigh],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::Absolute, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![SubInstruction::FetchAddressHigh],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-        ],
-
-        (AddressingMode::Absolute, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![SubInstruction::FetchAddressHigh],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-        ],
-
-        (AddressingMode::Absolute, InstructionType::Jmp) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::FetchAddressHigh,
-                SubInstruction::CopyAddressToPc,
-            ],
-        ],
-
-        (AddressingMode::AbsoluteX, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::FetchAddressHigh,
-                SubInstruction::AddXToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::AbsoluteX, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::FetchAddressHigh,
-                SubInstruction::AddXToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::AbsoluteX, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::FetchAddressHigh,
-                SubInstruction::AddXToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-        ],
-
-        (AddressingMode::AbsoluteY, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::FetchAddressHigh,
-                SubInstruction::AddYToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::AbsoluteY, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::FetchAddressHigh,
-                SubInstruction::AddYToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::AbsoluteY, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![
-                SubInstruction::FetchAddressHigh,
-                SubInstruction::AddYToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-        ],
-
-        (AddressingMode::Indirect, InstructionType::Jmp) => vec![
-            vec![SubInstruction::FetchAddressLow],
-            vec![SubInstruction::FetchAddressHigh],
-            vec![SubInstruction::ReadAddressToPcl],
-            vec![SubInstruction::ReadAddressToPch],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::Relative, InstructionType::Other) => todo!(),
-
-        (AddressingMode::IndirectX, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchPointer],
-            vec![
-                SubInstruction::ReadPointerToAddressLow,
-                SubInstruction::AddXToPointerNoPageCrossing,
-            ],
-            vec![SubInstruction::ReadPointerToAddressLow],
-            vec![SubInstruction::ReadPointerToAddressHigh],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::IndirectX, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchPointer],
-            vec![
-                SubInstruction::ReadPointerToAddressLow,
-                SubInstruction::AddXToPointerNoPageCrossing,
-            ],
-            vec![SubInstruction::ReadPointerToAddressLow],
-            vec![SubInstruction::ReadPointerToAddressHigh],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::IndirectX, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchPointer],
-            vec![
-                SubInstruction::ReadPointerToAddressLow,
-                SubInstruction::AddXToPointerNoPageCrossing,
-            ],
-            vec![SubInstruction::ReadPointerToAddressLow],
-            vec![SubInstruction::ReadPointerToAddressHigh],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-        ],
-
-        (AddressingMode::IndirectY, InstructionType::Read) => vec![
-            vec![SubInstruction::FetchPointer],
-            vec![SubInstruction::ReadPointerToAddressLow],
-            vec![
-                SubInstruction::ReadPointerToAddressHigh,
-                SubInstruction::AddYToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::FetchOpcode, operation],
-        ],
-
-        (AddressingMode::IndirectY, InstructionType::ReadModifyWrite) => vec![
-            vec![SubInstruction::FetchPointer],
-            vec![SubInstruction::ReadPointerToAddressLow],
-            vec![
-                SubInstruction::ReadPointerToAddressHigh,
-                SubInstruction::AddYToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![SubInstruction::ReadAddressToOperand],
-            vec![SubInstruction::WriteOperandToAddress, operation],
-            vec![SubInstruction::WriteOperandToAddress],
-            vec![SubInstruction::FetchOpcode],
-        ],
-
-        (AddressingMode::IndirectY, InstructionType::Write) => vec![
-            vec![SubInstruction::FetchPointer],
-            vec![SubInstruction::ReadPointerToAddressLow],
-            vec![
-                SubInstruction::ReadPointerToAddressHigh,
-                SubInstruction::AddYToAddress,
-            ],
-            vec![
-                SubInstruction::ReadAddressToOperand,
-                SubInstruction::FixAddressHigh,
-            ],
-            vec![operation, SubInstruction::WriteOperandToAddress],
-        ],
-
-        _ => panic!(),
+        (0b01, 0b000, 0b000) => Opcode::Ora {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b000, 0b001) => Opcode::Ora {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b000, 0b010) => Opcode::Ora {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b01, 0b000, 0b011) => Opcode::Ora {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b000, 0b100) => Opcode::Ora {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b000, 0b101) => Opcode::Ora {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b000, 0b110) => Opcode::Ora {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b000, 0b111) => Opcode::Ora {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b01, 0b001, 0b000) => Opcode::And {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b001, 0b001) => Opcode::And {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b001, 0b010) => Opcode::And {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b01, 0b001, 0b011) => Opcode::And {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b001, 0b100) => Opcode::And {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b001, 0b101) => Opcode::And {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b001, 0b110) => Opcode::And {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b001, 0b111) => Opcode::And {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b01, 0b010, 0b000) => Opcode::Eor {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b010, 0b001) => Opcode::Eor {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b010, 0b010) => Opcode::Eor {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b01, 0b010, 0b011) => Opcode::Eor {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b010, 0b100) => Opcode::Eor {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b010, 0b101) => Opcode::Eor {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b010, 0b110) => Opcode::Eor {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b010, 0b111) => Opcode::Eor {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b01, 0b011, 0b000) => Opcode::Adc {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b011, 0b001) => Opcode::Adc {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b011, 0b010) => Opcode::Adc {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b01, 0b011, 0b011) => Opcode::Adc {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b011, 0b100) => Opcode::Adc {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b011, 0b101) => Opcode::Adc {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b011, 0b110) => Opcode::Adc {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b011, 0b111) => Opcode::Adc {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b01, 0b100, 0b000) => Opcode::Sta {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b100, 0b001) => Opcode::Sta {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b100, 0b011) => Opcode::Sta {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b100, 0b100) => Opcode::Sta {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b100, 0b101) => Opcode::Sta {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b100, 0b110) => Opcode::Sta {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b100, 0b111) => Opcode::Sta {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b01, 0b101, 0b000) => Opcode::Lda {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b101, 0b001) => Opcode::Lda {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b101, 0b010) => Opcode::Lda {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b01, 0b101, 0b011) => Opcode::Lda {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b101, 0b100) => Opcode::Lda {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b101, 0b101) => Opcode::Lda {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b101, 0b110) => Opcode::Lda {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b101, 0b111) => Opcode::Lda {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b01, 0b110, 0b000) => Opcode::Cmp {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b110, 0b001) => Opcode::Cmp {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b110, 0b010) => Opcode::Cmp {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b01, 0b110, 0b011) => Opcode::Cmp {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b110, 0b100) => Opcode::Cmp {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b110, 0b101) => Opcode::Cmp {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b110, 0b110) => Opcode::Cmp {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b110, 0b111) => Opcode::Cmp {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b01, 0b111, 0b000) => Opcode::Sbc {
+            addressing_mode: AddressingMode::IndirectX,
+        },
+        (0b01, 0b111, 0b001) => Opcode::Sbc {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b01, 0b111, 0b010) => Opcode::Sbc {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b01, 0b111, 0b011) => Opcode::Sbc {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b01, 0b111, 0b100) => Opcode::Sbc {
+            addressing_mode: AddressingMode::IndirectY,
+        },
+        (0b01, 0b111, 0b101) => Opcode::Sbc {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b01, 0b111, 0b110) => Opcode::Sbc {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+        (0b01, 0b111, 0b111) => Opcode::Sbc {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b10, 0b000, 0b001) => Opcode::Asl {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b000, 0b010) => Opcode::Asl {
+            addressing_mode: AddressingMode::Accumulator,
+        },
+        (0b10, 0b000, 0b011) => Opcode::Asl {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b000, 0b101) => Opcode::Asl {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b10, 0b000, 0b111) => Opcode::Asl {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b10, 0b001, 0b001) => Opcode::Rol {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b001, 0b010) => Opcode::Rol {
+            addressing_mode: AddressingMode::Accumulator,
+        },
+        (0b10, 0b001, 0b011) => Opcode::Rol {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b001, 0b101) => Opcode::Rol {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b10, 0b001, 0b111) => Opcode::Rol {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b10, 0b010, 0b001) => Opcode::Lsr {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b010, 0b010) => Opcode::Lsr {
+            addressing_mode: AddressingMode::Accumulator,
+        },
+        (0b10, 0b010, 0b011) => Opcode::Lsr {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b010, 0b101) => Opcode::Lsr {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b10, 0b010, 0b111) => Opcode::Lsr {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b10, 0b011, 0b001) => Opcode::Ror {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b011, 0b010) => Opcode::Ror {
+            addressing_mode: AddressingMode::Accumulator,
+        },
+        (0b10, 0b011, 0b011) => Opcode::Ror {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b011, 0b101) => Opcode::Ror {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b10, 0b011, 0b111) => Opcode::Ror {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b10, 0b100, 0b001) => Opcode::Stx {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b100, 0b011) => Opcode::Stx {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b100, 0b101) => Opcode::Stx {
+            addressing_mode: AddressingMode::ZeropageY,
+        },
+
+        (0b10, 0b101, 0b000) => Opcode::Ldx {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b10, 0b101, 0b001) => Opcode::Ldx {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b101, 0b011) => Opcode::Ldx {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b101, 0b101) => Opcode::Ldx {
+            addressing_mode: AddressingMode::ZeropageY,
+        },
+        (0b10, 0b101, 0b111) => Opcode::Ldx {
+            addressing_mode: AddressingMode::AbsoluteY,
+        },
+
+        (0b10, 0b110, 0b001) => Opcode::Dec {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b110, 0b011) => Opcode::Dec {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b110, 0b101) => Opcode::Dec {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b10, 0b110, 0b111) => Opcode::Dec {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b10, 0b111, 0b001) => Opcode::Inc {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b10, 0b111, 0b011) => Opcode::Inc {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b10, 0b111, 0b101) => Opcode::Inc {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b10, 0b111, 0b111) => Opcode::Inc {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b00, 0b001, 0b001) => Opcode::Bit {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b00, 0b001, 0b011) => Opcode::Bit {
+            addressing_mode: AddressingMode::Absolute,
+        },
+
+        (0b00, 0b010, 0b011) => Opcode::Jmp {
+            addressing_mode: AddressingMode::Absolute,
+        },
+
+        (0b00, 0b011, 0b011) => Opcode::Jmp {
+            addressing_mode: AddressingMode::Indirect,
+        },
+
+        (0b00, 0b100, 0b001) => Opcode::Sty {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b00, 0b100, 0b011) => Opcode::Sty {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b00, 0b100, 0b101) => Opcode::Sty {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+
+        (0b00, 0b101, 0b000) => Opcode::Ldy {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b00, 0b101, 0b001) => Opcode::Ldy {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b00, 0b101, 0b011) => Opcode::Ldy {
+            addressing_mode: AddressingMode::Absolute,
+        },
+        (0b00, 0b101, 0b101) => Opcode::Ldy {
+            addressing_mode: AddressingMode::ZeropageX,
+        },
+        (0b00, 0b101, 0b111) => Opcode::Ldy {
+            addressing_mode: AddressingMode::AbsoluteX,
+        },
+
+        (0b00, 0b110, 0b000) => Opcode::Cpy {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b00, 0b110, 0b001) => Opcode::Cpy {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b00, 0b110, 0b011) => Opcode::Cpy {
+            addressing_mode: AddressingMode::Absolute,
+        },
+
+        (0b00, 0b111, 0b000) => Opcode::Cpx {
+            addressing_mode: AddressingMode::Immediate,
+        },
+        (0b00, 0b111, 0b001) => Opcode::Cpx {
+            addressing_mode: AddressingMode::Zeropage,
+        },
+        (0b00, 0b111, 0b011) => Opcode::Cpx {
+            addressing_mode: AddressingMode::Absolute,
+        },
+
+        (0b00, 0b000, 0b100) => Opcode::Bpl {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b001, 0b100) => Opcode::Bmi {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b010, 0b100) => Opcode::Bvc {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b011, 0b100) => Opcode::Bvs {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b100, 0b100) => Opcode::Bcc {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b101, 0b100) => Opcode::Bcs {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b110, 0b100) => Opcode::Bne {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b111, 0b100) => Opcode::Beq {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b000, 0b000) => Opcode::Brk {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b001, 0b000) => Opcode::Jsr {
+            addressing_mode: AddressingMode::Absolute,
+        },
+
+        (0b00, 0b010, 0b000) => Opcode::Rti {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b011, 0b000) => Opcode::Rts {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b000, 0b010) => Opcode::Php {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b001, 0b010) => Opcode::Plp {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b010, 0b010) => Opcode::Pha {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b011, 0b010) => Opcode::Pla {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b100, 0b010) => Opcode::Dey {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b101, 0b010) => Opcode::Tay {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b110, 0b010) => Opcode::Iny {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b111, 0b010) => Opcode::Inx {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b000, 0b110) => Opcode::Clc {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b001, 0b110) => Opcode::Sec {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b010, 0b110) => Opcode::Cli {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b011, 0b110) => Opcode::Sei {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b100, 0b110) => Opcode::Tya {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b101, 0b110) => Opcode::Clv {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b110, 0b110) => Opcode::Cld {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b00, 0b111, 0b110) => Opcode::Sed {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b10, 0b100, 0b010) => Opcode::Txa {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b10, 0b100, 0b110) => Opcode::Txs {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b10, 0b101, 0b010) => Opcode::Tax {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b10, 0b101, 0b110) => Opcode::Tsx {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b10, 0b110, 0b010) => Opcode::Dex {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        (0b10, 0b111, 0b010) => Opcode::Nop {
+            addressing_mode: AddressingMode::Implied,
+        },
+
+        _ => Opcode::Illegal,
     }
 }
