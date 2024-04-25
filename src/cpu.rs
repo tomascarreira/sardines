@@ -1168,21 +1168,21 @@ fn decode(opcode: u8) -> (Instr, AddrMode) {
         (0b00, 0b111, 0b001) => (Instr::Cpx, AddrMode::Zeropage),
         (0b00, 0b111, 0b011) => (Instr::Cpx, AddrMode::Absolute),
 
-        (0b00, 0b000, 0b100) => (Instr::Bpl, AddrMode::Implied),
+        (0b00, 0b000, 0b100) => (Instr::Bpl, AddrMode::Relative),
 
-        (0b00, 0b001, 0b100) => (Instr::Bmi, AddrMode::Implied),
+        (0b00, 0b001, 0b100) => (Instr::Bmi, AddrMode::Relative),
 
-        (0b00, 0b010, 0b100) => (Instr::Bvc, AddrMode::Implied),
+        (0b00, 0b010, 0b100) => (Instr::Bvc, AddrMode::Relative),
 
-        (0b00, 0b011, 0b100) => (Instr::Bvs, AddrMode::Implied),
+        (0b00, 0b011, 0b100) => (Instr::Bvs, AddrMode::Relative),
 
-        (0b00, 0b100, 0b100) => (Instr::Bcc, AddrMode::Implied),
+        (0b00, 0b100, 0b100) => (Instr::Bcc, AddrMode::Relative),
 
-        (0b00, 0b101, 0b100) => (Instr::Bcs, AddrMode::Implied),
+        (0b00, 0b101, 0b100) => (Instr::Bcs, AddrMode::Relative),
 
-        (0b00, 0b110, 0b100) => (Instr::Bne, AddrMode::Implied),
+        (0b00, 0b110, 0b100) => (Instr::Bne, AddrMode::Relative),
 
-        (0b00, 0b111, 0b100) => (Instr::Beq, AddrMode::Implied),
+        (0b00, 0b111, 0b100) => (Instr::Beq, AddrMode::Relative),
 
         (0b00, 0b000, 0b000) => (Instr::Brk, AddrMode::Implied),
 
