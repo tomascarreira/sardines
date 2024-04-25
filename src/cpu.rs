@@ -591,6 +591,129 @@ impl Cpu {
                 self.instr_state.cycle = 2;
                 self.pc += 1
             }
+
+            (_, AddrMode::IndirectX, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (_, AddrMode::IndirectX, 3) => {
+                self.instr_state.saved_byte = self
+                    .read(self.instr_state.saved_byte as u16, bus)
+                    .wrapping_add(self.x);
+            }
+            (_, AddrMode::IndirectX, 4) => {
+                self.instr_state.saved_addr =
+                    self.read(self.instr_state.saved_byte as u16, bus) as u16;
+            }
+            (_, AddrMode::IndirectX, 5) => {
+                self.instr_state.saved_addr |=
+                    (self.read(self.instr_state.saved_byte as u16, bus) as u16) << 8;
+            }
+
+            (
+                instr @ (Instr::Lda
+                | Instr::Ora
+                | Instr::Eor
+                | Instr::And
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp),
+                AddrMode::IndirectX,
+                6,
+            ) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                self.do_opcode_read(val, instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr @ Instr::Sta, AddrMode::IndirectX, 6) => {
+                let val = self.do_opcode_write(instr);
+                self.write(val, self.instr_state.saved_addr, bus);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (_, AddrMode::IndirectY, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (_, AddrMode::IndirectY, 3) => {
+                self.instr_state.saved_addr =
+                    self.read(self.instr_state.saved_byte as u16, bus) as u16;
+            }
+            (_, AddrMode::IndirectY, 4) => {
+                let addr_high = self.read(self.instr_state.saved_byte.wrapping_add(1) as u16, bus);
+                let (addr_low, page_crossed) =
+                    (self.instr_state.saved_byte as u8).overflowing_add(self.y);
+                self.instr_state.saved_addr = addr_low as u16 | (addr_high as u16) << 8;
+                self.instr_state.page_crossed = page_crossed;
+            }
+
+            (
+                instr @ (Instr::Lda
+                | Instr::Ora
+                | Instr::Eor
+                | Instr::And
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp),
+                AddrMode::IndirectY,
+                5,
+            ) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                if self.instr_state.page_crossed {
+                    self.instr_state.saved_addr += 0x0100;
+                } else {
+                    self.do_opcode_read(val, instr);
+                    self.instr_state.fetch_opcode = true;
+                }
+            }
+            (
+                instr @ (Instr::Lda
+                | Instr::Ora
+                | Instr::Eor
+                | Instr::And
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp),
+                AddrMode::IndirectY,
+                6,
+            ) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                self.do_opcode_read(val, instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Sta, AddrMode::IndirectY, 5) => {
+                self.read(self.instr_state.saved_addr, bus);
+                if self.instr_state.page_crossed {
+                    self.instr_state.saved_addr += 0x0100;
+                }
+            }
+            (instr @ Instr::Sta, AddrMode::IndirectY, 6) => {
+                let val = self.do_opcode_write(instr);
+                self.write(val, self.instr_state.saved_addr, bus);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (_, AddrMode::Indirect, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (_, AddrMode::Indirect, 3) => {
+                self.instr_state.saved_addr =
+                    self.instr_state.saved_byte as u16 | (self.read(self.pc, bus) as u16) << 8;
+                self.pc += 1;
+            }
+            (_, AddrMode::Indirect, 4) => {
+                self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
+            }
+            (_, AddrMode::Indirect, 5) => {
+                let addr_low = (self.instr_state.saved_addr as u8).wrapping_add(1);
+                let pc_high =
+                    self.read(self.instr_state.saved_addr & 0xff00 | addr_low as u16, bus);
+                self.pc = self.instr_state.saved_byte as u16 | (pc_high as u16) << 8;
+            }
+
             _ => todo!(),
         }
 
@@ -635,20 +758,20 @@ impl Cpu {
             Instr::Cld => self.p.decimal = false,
             Instr::Cli => self.p.interrupt_disable = false,
             Instr::Clv => self.p.overflow = false,
-            Instr::Dex => self.x = self.dex(),
-            Instr::Dey => self.y = self.dey(),
-            Instr::Inx => self.x = self.inx(),
-            Instr::Iny => self.y = self.iny(),
+            Instr::Dex => self.dex(),
+            Instr::Dey => self.dey(),
+            Instr::Inx => self.inx(),
+            Instr::Iny => self.iny(),
             Instr::Nop => (),
             Instr::Sec => self.p.carry = true,
             Instr::Sed => self.p.decimal = true,
             Instr::Sei => self.p.interrupt_disable = true,
-            Instr::Tax => self.x = self.tax(),
-            Instr::Tay => self.y = self.tay(),
-            Instr::Tsx => self.x = self.tsx(),
-            Instr::Txa => self.a = self.txa(),
-            Instr::Txs => self.s = self.txs(),
-            Instr::Tya => self.a = self.tya(),
+            Instr::Tax => self.tax(),
+            Instr::Tay => self.tay(),
+            Instr::Tsx => self.tsx(),
+            Instr::Txa => self.txa(),
+            Instr::Txs => self.txs(),
+            Instr::Tya => self.tya(),
 
             // Accumulator
             Instr::Asl => self.a = self.asl(self.a),
@@ -708,9 +831,9 @@ impl Cpu {
 
     fn do_opcode_write(&mut self, instr: Instr) -> u8 {
         match instr {
-            Instr::Sta => self.sta(),
-            Instr::Stx => self.stx(),
-            Instr::Sty => self.sty(),
+            Instr::Sta => self.a,
+            Instr::Stx => self.x,
+            Instr::Sty => self.y,
             _ => unreachable!(),
         }
     }
@@ -761,31 +884,58 @@ impl Cpu {
     }
 
     fn bit(&mut self, value: u8) {
-        todo!()
+        let test = self.a & value;
+
+        self.p.zero = test == 0;
+        self.p.overflow = bit_to_bool((value >> 6) & 0x01);
+        self.p.negative = bit_to_bool((value >> 7) & 0x01);
     }
 
     fn cmp(&mut self, value: u8) {
-        todo!()
+        let test = self.a.wrapping_sub(value);
+
+        self.p.carry = self.a >= value;
+        self.p.zero = self.a == value;
+        self.p.negative = bit_to_bool((test >> 7) & 0x01);
     }
 
     fn cpx(&mut self, value: u8) {
-        todo!()
+        let test = self.x.wrapping_sub(value);
+
+        self.p.carry = self.x >= value;
+        self.p.zero = self.x == value;
+        self.p.negative = bit_to_bool((test >> 7) & 0x01);
     }
 
     fn cpy(&mut self, value: u8) {
-        todo!()
+        let test = self.y.wrapping_sub(value);
+
+        self.p.carry = self.y >= value;
+        self.p.zero = self.y == value;
+        self.p.negative = bit_to_bool((test >> 7) & 0x01);
     }
 
     fn dec(&mut self, value: u8) -> u8 {
-        todo!()
+        let res = value.wrapping_sub(1);
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        res
     }
 
-    fn dex(&mut self) -> u8 {
-        todo!()
+    fn dex(&mut self) {
+        self.x = self.x.wrapping_sub(1);
+
+        self.p.zero = self.x == 0;
+        self.p.negative = (self.x as i8) < 0;
     }
 
-    fn dey(&mut self) -> u8 {
-        todo!()
+    fn dey(&mut self) {
+        self.x = self.x.wrapping_sub(1);
+
+        self.p.zero = self.x == 0;
+        self.p.negative = (self.x as i8) < 0;
     }
 
     fn eor(&mut self, value: u8) -> u8 {
@@ -796,11 +946,11 @@ impl Cpu {
         todo!()
     }
 
-    fn inx(&mut self) -> u8 {
+    fn inx(&mut self) {
         todo!()
     }
 
-    fn iny(&mut self) -> u8 {
+    fn iny(&mut self) {
         todo!()
     }
 
@@ -816,7 +966,7 @@ impl Cpu {
         todo!()
     }
 
-    fn lsr(&mut self, a: u8) -> u8 {
+    fn lsr(&mut self, value: u8) -> u8 {
         todo!()
     }
 
@@ -824,47 +974,35 @@ impl Cpu {
         todo!()
     }
 
-    fn rol(&mut self, a: u8) -> u8 {
+    fn rol(&mut self, value: u8) -> u8 {
         todo!()
     }
 
-    fn ror(&mut self, a: u8) -> u8 {
+    fn ror(&mut self, value: u8) -> u8 {
         todo!()
     }
 
-    fn sta(&self) -> u8 {
+    fn tax(&mut self) {
         todo!()
     }
 
-    fn stx(&self) -> u8 {
+    fn tay(&mut self) {
         todo!()
     }
 
-    fn sty(&self) -> u8 {
+    fn tsx(&mut self) {
         todo!()
     }
 
-    fn tax(&mut self) -> u8 {
+    fn txa(&mut self) {
         todo!()
     }
 
-    fn tay(&mut self) -> u8 {
+    fn txs(&mut self) {
         todo!()
     }
 
-    fn tsx(&mut self) -> u8 {
-        todo!()
-    }
-
-    fn txa(&mut self) -> u8 {
-        todo!()
-    }
-
-    fn txs(&mut self) -> u8 {
-        todo!()
-    }
-
-    fn tya(&mut self) -> u8 {
+    fn tya(&mut self) {
         todo!()
     }
 }
