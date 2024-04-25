@@ -4,4 +4,10 @@ mod cpu;
 mod nes;
 mod ppu;
 
-fn main() {}
+use cartridge::Cartridge;
+use nes::Nes;
+
+fn main() {
+    let mut nes = Nes::new(Cartridge {});
+    nes.run();
+}
