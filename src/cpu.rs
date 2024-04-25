@@ -7,13 +7,7 @@ pub struct Cpu {
     s: u8,
     p: StatusFlag,
     pc: u16,
-    opcode: Opcode,
-    addressing_mode: AddressingMode,
-    curr_instr: Instr,
-    next_instr: Instr,
-    operand: u8,
-    address: u16,
-    ir: u8,
+    instr_state: InstrState,
 }
 
 impl Cpu {
@@ -22,72 +16,534 @@ impl Cpu {
             a: 0,
             x: 0,
             y: 0,
-            s: 0xfd,
-            p: StatusFlag {
-                carry: false,
-                zero: false,
-                interrupt_disable: true,
-                decimal: false,
-                overflow: false,
-                negative: false,
+            s: 0,
+            p: StatusFlag::power_on(),
+            pc: 1,
+            instr_state: InstrState {
+                instr: Instr::Brk,
+                addr_mode: AddrMode::Implied,
+                cycle: 2,
+                fetch_opcode: false,
+                saved_byte: 0,
+                saved_addr: 0,
             },
-            // Fix: pc is got from the reset vector
-            pc: 0,
-            opcode: Opcode::Brk,
-            addressing_mode: AddressingMode::Implied,
-            curr_instr: Instr::FetchAddressHigh,
-            next_instr: Instr::FetchOpcode,
-            operand: 0,
-            address: 0,
-            ir: 0,
         }
     }
 
     pub fn cycle(&mut self, bus: &mut Bus) {
-        self.curr_instr = self.next_instr;
+        if self.instr_state.fetch_opcode {
+            self.instr_state.fetch_opcode = false;
+            let opcode = self.fetch_opcode(bus);
 
-        match self.curr_instr {
-            Instr::FetchOpcode => {
-                self.ir = bus.read(self.pc);
+            let (instr, addr_mode) = decode(opcode);
+            self.instr_state.instr = instr;
+            self.instr_state.addr_mode = addr_mode;
+            self.instr_state.cycle = 2;
+
+            return;
+        }
+
+        match (
+            self.instr_state.instr,
+            self.instr_state.addr_mode,
+            self.instr_state.cycle,
+        ) {
+            (Instr::Brk, AddrMode::Implied, 2) => {
+                self.dummy_read(bus);
                 self.pc += 1;
-                self.next_instr = Instr::DecodeOpcode;
+            }
+            (Instr::Brk, AddrMode::Implied, 3) => {
+                self.stack_push((self.pc >> 8) as u8, bus);
+                self.s = self.s.wrapping_sub(1);
+            }
+            (Instr::Brk, AddrMode::Implied, 4) => {
+                self.stack_push(self.pc as u8, bus);
+                self.s = self.s.wrapping_sub(1);
+            }
+            (Instr::Brk, AddrMode::Implied, 5) => {
+                self.stack_push(self.p.b_flag_set(), bus);
+                self.s = self.s.wrapping_sub(1);
+            }
+            (Instr::Brk, AddrMode::Implied, 6) => {
+                // Does it matter if pch is override by 0x0000
+                // Does the cpu write to the pcl in this cycle, if not this it have a exterior effect?
+                self.pc = self.read(0xfffe, bus) as u16;
+            }
+            (Instr::Brk, AddrMode::Implied, 7) => {
+                self.pc |= (self.read(0xffff, bus) as u16) << 8;
+                self.instr_state.fetch_opcode = true;
             }
 
-            Instr::DecodeOpcode => {
-                (self.opcode, self.addressing_mode) = decode(bus.read(self.pc));
-                match self.addressing_mode {
-                    AddressingMode::Accumulator => todo!(),
-                    AddressingMode::Absolute => todo!(),
-                    AddressingMode::AbsoluteX => todo!(),
-                    AddressingMode::AbsoluteY => todo!(),
-                    AddressingMode::Immediate => {
-                        self.operand = bus.read(self.pc);
-                        self.pc += 1;
-                        self.next_instr = Instr::FetchOpcode;
-                        self.execute_opcode(bus);
-                    }
-                    AddressingMode::Implied => todo!(),
-                    AddressingMode::Indirect => todo!(),
-                    AddressingMode::IndirectX => todo!(),
-                    AddressingMode::IndirectY => todo!(),
-                    AddressingMode::Relative => todo!(),
-                    AddressingMode::Zeropage => todo!(),
-                    AddressingMode::ZeropageX => todo!(),
-                    AddressingMode::ZeropageY => todo!(),
+            (Instr::Rti, AddrMode::Implied, 2) => {
+                self.dummy_read(bus);
+            }
+            (Instr::Rti, AddrMode::Implied, 3) => {
+                // Is dummy read before or after incrementing s
+                self.stack_dummy_read(bus);
+                self.s = self.s.wrapping_add(1);
+            }
+            (Instr::Rti, AddrMode::Implied, 4) => {
+                self.p = StatusFlag::from(self.stack_pop(bus));
+                self.s = self.s.wrapping_add(1);
+            }
+            (Instr::Rti, AddrMode::Implied, 5) => {
+                self.pc = self.stack_pop(bus) as u16;
+                self.s = self.s.wrapping_add(1);
+            }
+            (Instr::Rti, AddrMode::Implied, 6) => {
+                self.pc |= (self.stack_pop(bus) as u16) << 8;
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Rts, AddrMode::Implied, 2) => {
+                self.dummy_read(bus);
+            }
+            (Instr::Rts, AddrMode::Implied, 3) => {
+                self.stack_dummy_read(bus);
+                self.s = self.s.wrapping_add(1);
+            }
+            (Instr::Rts, AddrMode::Implied, 4) => {
+                self.pc = self.stack_pop(bus) as u16;
+                self.s = self.s.wrapping_add(1);
+            }
+            (Instr::Rts, AddrMode::Implied, 5) => {
+                self.pc |= (self.stack_pop(bus) as u16) << 8;
+            }
+            (Instr::Rts, AddrMode::Implied, 6) => {
+                self.dummy_read(bus);
+                self.pc += 1;
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Pha | Instr::Php, AddrMode::Implied, 2) => {
+                self.dummy_read(bus);
+            }
+            (instr @ (Instr::Pha | Instr::Php), AddrMode::Implied, 3) => {
+                match instr {
+                    Instr::Pha => self.stack_push(self.a, bus),
+                    Instr::Php => self.stack_push(self.p.b_flag_set(), bus),
+                    _ => unreachable!(),
                 }
+                self.s = self.s.wrapping_sub(1);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Pla | Instr::Plp, AddrMode::Implied, 2) => {
+                self.dummy_read(bus);
+            }
+            (Instr::Pla | Instr::Plp, AddrMode::Implied, 3) => {
+                self.stack_dummy_read(bus);
+                self.s = self.s.wrapping_add(1);
+            }
+            (instr @ (Instr::Pla | Instr::Plp), AddrMode::Implied, 4) => {
+                match instr {
+                    Instr::Pha => self.a = self.stack_pop(bus),
+                    Instr::Php => self.p = StatusFlag::from(self.stack_pop(bus)),
+                    _ => unreachable!(),
+                }
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Jsr, AddrMode::Absolute, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (Instr::Jsr, AddrMode::Absolute, 3) => {
+                self.stack_dummy_read(bus);
+            }
+            (Instr::Jsr, AddrMode::Absolute, 4) => {
+                self.stack_push((self.pc >> 8) as u8, bus);
+                self.s = self.s.wrapping_sub(1);
+            }
+            (Instr::Jsr, AddrMode::Absolute, 5) => {
+                self.stack_push(self.pc as u8, bus);
+                self.s = self.s.wrapping_sub(1);
+            }
+            (Instr::Jsr, AddrMode::Absolute, 6) => {
+                self.pc =
+                    self.instr_state.saved_byte as u16 | (self.read(self.pc, bus) as u16) << 8;
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr, AddrMode::Implied, 2) => {
+                self.dummy_read(bus);
+                self.do_opcode_imp_acc(instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr, AddrMode::Accumulator, 2) => {
+                self.dummy_read(bus);
+                self.do_opcode_imp_acc(instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr, AddrMode::Immediate, 2) => {
+                let val = self.read(self.pc, bus);
+                self.pc += 1;
+                self.do_opcode_imm(val, instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Jmp, AddrMode::Absolute, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (Instr::Jmp, AddrMode::Absolute, 3) => {
+                self.pc =
+                    self.instr_state.saved_byte as u16 | (self.read(self.pc, bus) as u16) << 8;
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (_, AddrMode::Absolute, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (_, AddrMode::Absolute, 3) => {
+                self.instr_state.saved_addr =
+                    self.instr_state.saved_byte as u16 | (self.read(self.pc, bus) as u16) << 8;
+                self.pc += 1;
+            }
+            (
+                instr @ (Instr::Lda
+                | Instr::Ldx
+                | Instr::Ldy
+                | Instr::Eor
+                | Instr::And
+                | Instr::Ora
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp
+                | Instr::Cpx
+                | Instr::Cpy
+                | Instr::Bit),
+                AddrMode::Absolute,
+                4,
+            ) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                self.do_opcode_read(val, instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::Absolute,
+                4,
+            ) => {
+                self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
+            }
+
+            (
+                instr @ (Instr::Asl
+                | Instr::Lsr
+                | Instr::Rol
+                | Instr::Ror
+                | Instr::Inc
+                | Instr::Dec),
+                AddrMode::Absolute,
+                5,
+            ) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.saved_byte =
+                    self.do_opcode_rmw(self.instr_state.saved_byte, instr);
+            }
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::Absolute,
+                6,
+            ) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr @ (Instr::Sta | Instr::Stx | Instr::Sty), AddrMode::Absolute, 4) => {
+                let val = self.do_opcode_write(instr);
+                self.write(val, self.instr_state.saved_addr, bus);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (_, AddrMode::Zeropage, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+
+            (
+                instr @ (Instr::Lda
+                | Instr::Ldx
+                | Instr::Ldy
+                | Instr::Eor
+                | Instr::And
+                | Instr::Ora
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp
+                | Instr::Cpx
+                | Instr::Cpy
+                | Instr::Bit),
+                AddrMode::Zeropage,
+                3,
+            ) => {
+                let addr =
+                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
+                self.do_opcode_read(self.read(addr, bus), instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::Zeropage,
+                3,
+            ) => {
+                self.instr_state.saved_addr = self.instr_state.saved_byte as u16;
+                self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
+            }
+            (
+                instr @ (Instr::Asl
+                | Instr::Lsr
+                | Instr::Rol
+                | Instr::Ror
+                | Instr::Inc
+                | Instr::Dec),
+                AddrMode::Zeropage,
+                4,
+            ) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.saved_byte =
+                    self.do_opcode_rmw(self.instr_state.saved_byte, instr);
+            }
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::Zeropage,
+                5,
+            ) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr @ (Instr::Sta | Instr::Stx | Instr::Sty), AddrMode::Zeropage, 3) => {
+                let addr =
+                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
+                let val = self.do_opcode_write(instr);
+                self.write(val, addr, bus);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (_, AddrMode::ZeropageX | AddrMode::ZeropageY, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (_, AddrMode::ZeropageX, 3) => {
+                let addr =
+                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
+                self.instr_state.saved_addr = self.read(addr, bus).wrapping_add(self.x) as u16
+            }
+
+            (
+                instr @ (Instr::Lda
+                | Instr::Ldy
+                | Instr::Eor
+                | Instr::And
+                | Instr::Ora
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp),
+                AddrMode::ZeropageX,
+                4,
+            ) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                self.do_opcode_read(val, instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror, AddrMode::ZeropageX, 4) => {
+                self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
+            }
+            (
+                instr @ (Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror),
+                AddrMode::ZeropageX,
+                5,
+            ) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.saved_byte =
+                    self.do_opcode_rmw(self.instr_state.saved_byte, instr);
+            }
+            (Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror, AddrMode::ZeropageX, 6) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr @ (Instr::Sta | Instr::Sty), AddrMode::ZeropageX, 4) => {
+                let val = self.do_opcode_write(instr);
+                self.write(val, self.instr_state.saved_addr, bus);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (_, AddrMode::ZeropageY, 3) => {
+                let addr =
+                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
+                self.instr_state.saved_addr = self.read(addr, bus).wrapping_add(self.y) as u16
+            }
+
+            (instr @ Instr::Ldx, AddrMode::ZeropageY, 4) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                self.do_opcode_read(val, instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (instr @ Instr::Stx, AddrMode::ZeropageY, 4) => {
+                let val = self.do_opcode_write(instr);
+                self.write(val, self.instr_state.saved_addr, bus);
+                self.instr_state.fetch_opcode = true;
             }
 
             _ => todo!(),
         }
+
+        self.instr_state.cycle += 1;
     }
 
-    fn execute_opcode(&mut self, bus: &mut Bus) {
-        match (self.opcode, self.addressing_mode) {
-            (Opcode::Adc, )
+    fn fetch_opcode(&mut self, bus: &Bus) -> u8 {
+        let opcode = bus.read(self.pc);
+        self.pc += 1;
+        opcode
+    }
+
+    // Maybe use only one dummy_read function that takes de address
+    fn dummy_read(&self, bus: &Bus) {
+        bus.read(self.pc);
+    }
+
+    fn stack_dummy_read(&self, bus: &Bus) {
+        bus.read(0x0100 + (self.s as u16));
+    }
+
+    fn read(&self, addr: u16, bus: &Bus) -> u8 {
+        bus.read(addr)
+    }
+
+    fn write(&self, value: u8, addr: u16, bus: &mut Bus) {
+        bus.write(value, addr);
+    }
+
+    fn stack_push(&self, val: u8, bus: &mut Bus) {
+        bus.write(val, 0x0100 + (self.s as u16));
+    }
+
+    fn stack_pop(&self, bus: &Bus) -> u8 {
+        bus.read(0x0100 + (self.s as u16))
+    }
+
+    fn do_opcode_imp_acc(&mut self, instr: Instr) {
+        match instr {
+            // Implied
+            Instr::Clc => self.p.carry = false,
+            Instr::Cld => self.p.decimal = false,
+            Instr::Cli => self.p.interrupt_disable = false,
+            Instr::Clv => self.p.overflow = false,
+            Instr::Dex => self.x = self.dex(),
+            Instr::Dey => self.y = self.dey(),
+            Instr::Inx => self.x = self.inx(),
+            Instr::Iny => self.y = self.iny(),
+            Instr::Nop => (),
+            Instr::Sec => self.p.carry = true,
+            Instr::Sed => self.p.decimal = true,
+            Instr::Sei => self.p.interrupt_disable = true,
+            Instr::Tax => self.x = self.tax(),
+            Instr::Tay => self.y = self.tay(),
+            Instr::Tsx => self.x = self.tsx(),
+            Instr::Txa => self.a = self.txa(),
+            Instr::Txs => self.s = self.txs(),
+            Instr::Tya => self.a = self.tya(),
+
+            // Accumulator
+            Instr::Asl => self.a = self.asl(self.a),
+            Instr::Lsr => self.a = self.lsr(self.a),
+            Instr::Rol => self.a = self.rol(self.a),
+            Instr::Ror => self.a = self.ror(self.a),
+            _ => unreachable!(),
         }
     }
 
-    fn adc(&mut self, value: u8) {
+    fn do_opcode_imm(&mut self, value: u8, instr: Instr) {
+        match instr {
+            Instr::Adc => self.a = self.adc(value),
+            Instr::And => self.a = self.and(value),
+            Instr::Cmp => self.cmp(value),
+            Instr::Cpx => self.cpx(value),
+            Instr::Cpy => self.cpy(value),
+            Instr::Eor => self.a = self.eor(value),
+            Instr::Lda => self.a = self.lda(value),
+            Instr::Ldx => self.x = self.ldx(value),
+            Instr::Ldy => self.y = self.ldy(value),
+            Instr::Ora => self.a = self.ora(value),
+            Instr::Sbc => self.a = self.adc(!value),
+            _ => unreachable!(),
+        }
+    }
+
+    fn do_opcode_read(&mut self, value: u8, instr: Instr) {
+        match instr {
+            Instr::Lda => self.a = self.lda(value),
+            Instr::Ldx => self.x = self.ldx(value),
+            Instr::Ldy => self.y = self.ldy(value),
+            Instr::Eor => self.a = self.eor(value),
+            Instr::And => self.a = self.eor(value),
+            Instr::Ora => self.a = self.ora(value),
+            Instr::Adc => self.a = self.adc(value),
+            Instr::Sbc => self.a = self.adc(!value),
+            Instr::Cmp => self.cmp(value),
+            Instr::Cpx => self.cpx(value),
+            Instr::Cpy => self.cpy(value),
+            Instr::Bit => self.bit(value),
+            _ => unreachable!(),
+        }
+    }
+
+    fn do_opcode_rmw(&mut self, value: u8, instr: Instr) -> u8 {
+        match instr {
+            Instr::Asl => self.asl(value),
+            Instr::Lsr => self.lsr(value),
+            Instr::Rol => self.rol(value),
+            Instr::Ror => self.ror(value),
+            Instr::Inc => self.inc(value),
+            Instr::Dec => self.dec(value),
+            _ => unreachable!(),
+        }
+    }
+
+    fn do_opcode_write(&mut self, instr: Instr) -> u8 {
+        match instr {
+            Instr::Sta => self.sta(),
+            Instr::Stx => self.stx(),
+            Instr::Sty => self.sty(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn adc(&mut self, value: u8) -> u8 {
         // TODO: change to carrying_add when its out of nightly or if I decide to use nightly
         let res: u16 = self.a as u16 + value as u16 + self.p.carry as u16;
 
@@ -96,14 +552,16 @@ impl Cpu {
         self.p.overflow = (((res as u8 ^ self.a) & (res as u8 ^ value)) >> 7) != 0;
         self.p.negative = (res as i8) < 0;
 
-        self.a = res as u8;
+        res as u8
     }
 
-    fn and(&mut self, value: u8) {
+    fn and(&mut self, value: u8) -> u8 {
         let res = self.a & value;
 
         self.p.zero = res == 0;
         self.p.negative = (res as i8) < 0;
+
+        res
     }
 
     fn asl(&mut self, value: u8) -> u8 {
@@ -114,6 +572,114 @@ impl Cpu {
         self.p.negative = (res as i8) < 0;
 
         res
+    }
+
+    fn bit(&mut self, value: u8) {
+        todo!()
+    }
+
+    fn cmp(&mut self, value: u8) {
+        todo!()
+    }
+
+    fn cpx(&mut self, value: u8) {
+        todo!()
+    }
+
+    fn cpy(&mut self, value: u8) {
+        todo!()
+    }
+
+    fn dec(&mut self, value: u8) -> u8 {
+        todo!()
+    }
+
+    fn dex(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn dey(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn eor(&mut self, value: u8) -> u8 {
+        todo!()
+    }
+
+    fn inc(&mut self, value: u8) -> u8 {
+        todo!()
+    }
+
+    fn inx(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn iny(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn lda(&mut self, value: u8) -> u8 {
+        todo!()
+    }
+
+    fn ldx(&mut self, value: u8) -> u8 {
+        todo!()
+    }
+
+    fn ldy(&mut self, value: u8) -> u8 {
+        todo!()
+    }
+
+    fn lsr(&mut self, a: u8) -> u8 {
+        todo!()
+    }
+
+    fn ora(&mut self, value: u8) -> u8 {
+        todo!()
+    }
+
+    fn rol(&mut self, a: u8) -> u8 {
+        todo!()
+    }
+
+    fn ror(&mut self, a: u8) -> u8 {
+        todo!()
+    }
+
+    fn sta(&self) -> u8 {
+        todo!()
+    }
+
+    fn stx(&self) -> u8 {
+        todo!()
+    }
+
+    fn sty(&self) -> u8 {
+        todo!()
+    }
+
+    fn tax(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn tay(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn tsx(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn txa(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn txs(&mut self) -> u8 {
+        todo!()
+    }
+
+    fn tya(&mut self) -> u8 {
+        todo!()
     }
 }
 
@@ -126,10 +692,72 @@ struct StatusFlag {
     negative: bool,
 }
 
-// Fix: an instruction can havae an addressing mode that its not possible
-// Instruction::Brk(Acumulator)
+fn bool_to_bit(bool: bool) -> u8 {
+    if bool {
+        1
+    } else {
+        0
+    }
+}
+
+fn bit_to_bool(bit: u8) -> bool {
+    match bit {
+        0 => false,
+        1 => true,
+        _ => panic!("Argument bit must be 0 or 1"),
+    }
+}
+
+impl StatusFlag {
+    fn power_on() -> Self {
+        StatusFlag {
+            carry: false,
+            zero: false,
+            interrupt_disable: true,
+            decimal: false,
+            overflow: false,
+            negative: false,
+        }
+    }
+
+    fn b_flag_set(&self) -> u8 {
+        bool_to_bit(self.carry)
+            | (bool_to_bit(self.zero) << 1)
+            | (bool_to_bit(self.interrupt_disable) << 2)
+            | (bool_to_bit(self.decimal) << 3)
+            // b flag set
+            | (1 << 4)
+            // always set
+            | (1 << 5)
+            | (bool_to_bit(self.overflow) << 6)
+            | (bool_to_bit(self.negative) << 7)
+    }
+}
+
+impl From<u8> for StatusFlag {
+    fn from(value: u8) -> Self {
+        StatusFlag {
+            carry: bit_to_bool(value & 0b00000001),
+            zero: bit_to_bool((value >> 1) & 0b00000001),
+            interrupt_disable: bit_to_bool((value >> 2) & 0b00000001),
+            decimal: bit_to_bool((value >> 3) & 0b00000001),
+            overflow: bit_to_bool((value >> 6) & 0b00000001),
+            negative: bit_to_bool((value >> 7) & 0b00000001),
+        }
+    }
+}
+
+struct InstrState {
+    instr: Instr,
+    addr_mode: AddrMode,
+    cycle: usize,
+    fetch_opcode: bool,
+    saved_byte: u8,
+    saved_addr: u16,
+}
+
 #[derive(Clone, Copy)]
-enum Opcode {
+enum Instr {
     Illegal,
     Adc,
     And,
@@ -190,7 +818,7 @@ enum Opcode {
 }
 
 #[derive(Clone, Copy)]
-enum AddressingMode {
+enum AddrMode {
     Accumulator,
     Absolute,
     AbsoluteX,
@@ -206,264 +834,221 @@ enum AddressingMode {
     ZeropageY,
 }
 
-enum InstructionType {
-    Read,
-    ReadModifyWrite,
-    Write,
-    Brk,
-    Rti,
-    Rts,
-    Pha,
-    Php,
-    Pla,
-    Plp,
-    Jsr,
-    Jmp,
-    Other,
-}
-
-#[derive(Copy, Clone)]
-enum Instr {
-    FetchOpcode,
-    DecodeOpcode,
-    FetchOperand,
-    FetchAddressLow,
-    FetchAddressHigh,
-    FetchPointer,
-    ReadAddressToOperand,
-    ReadAddressToPcl,
-    ReadAddressToPch,
-    ReadPointerToAddressLow,
-    ReadPointerToAddressHigh,
-    DummyRead,
-    LoadAccumulator,
-    WriteOperandToAddress,
-    AddXToAddress,
-    AddYToAddress,
-    AddXToAddressNoPageCrossing,
-    AddYToAddressNoPageCrossing,
-    AddXToPointerNoPageCrossing,
-    FixAddressHigh,
-    CopyAddressToPc,
-}
-
 // Fix: return error  (maybe use thiserror or just use anyhow)
-fn decode(opcode: u8) -> (Opcode, AddressingMode) {
+fn decode(opcode: u8) -> (Instr, AddrMode) {
     let aaa = opcode >> 5;
     let bbb = (opcode & 0b00011100) >> 2;
     let cc = opcode & 0b00000011;
 
     match (cc, aaa, bbb) {
-        (0b01, 0b000, 0b000) => (Opcode::Ora, AddressingMode::IndirectX),
-        (0b01, 0b000, 0b001) => (Opcode::Ora, AddressingMode::Zeropage),
-        (0b01, 0b000, 0b010) => (Opcode::Ora, AddressingMode::Immediate),
-        (0b01, 0b000, 0b011) => (Opcode::Ora, AddressingMode::Absolute),
-        (0b01, 0b000, 0b100) => (Opcode::Ora, AddressingMode::IndirectY),
-        (0b01, 0b000, 0b101) => (Opcode::Ora, AddressingMode::ZeropageX),
-        (0b01, 0b000, 0b110) => (Opcode::Ora, AddressingMode::AbsoluteY),
-        (0b01, 0b000, 0b111) => (Opcode::Ora, AddressingMode::AbsoluteX),
+        (0b01, 0b000, 0b000) => (Instr::Ora, AddrMode::IndirectX),
+        (0b01, 0b000, 0b001) => (Instr::Ora, AddrMode::Zeropage),
+        (0b01, 0b000, 0b010) => (Instr::Ora, AddrMode::Immediate),
+        (0b01, 0b000, 0b011) => (Instr::Ora, AddrMode::Absolute),
+        (0b01, 0b000, 0b100) => (Instr::Ora, AddrMode::IndirectY),
+        (0b01, 0b000, 0b101) => (Instr::Ora, AddrMode::ZeropageX),
+        (0b01, 0b000, 0b110) => (Instr::Ora, AddrMode::AbsoluteY),
+        (0b01, 0b000, 0b111) => (Instr::Ora, AddrMode::AbsoluteX),
 
-        (0b01, 0b001, 0b000) => (Opcode::And, AddressingMode::IndirectX),
-        (0b01, 0b001, 0b001) => (Opcode::And, AddressingMode::Zeropage),
-        (0b01, 0b001, 0b010) => (Opcode::And, AddressingMode::Immediate),
-        (0b01, 0b001, 0b011) => (Opcode::And, AddressingMode::Absolute),
-        (0b01, 0b001, 0b100) => (Opcode::And, AddressingMode::IndirectY),
-        (0b01, 0b001, 0b101) => (Opcode::And, AddressingMode::ZeropageX),
-        (0b01, 0b001, 0b110) => (Opcode::And, AddressingMode::AbsoluteY),
-        (0b01, 0b001, 0b111) => (Opcode::And, AddressingMode::AbsoluteX),
+        (0b01, 0b001, 0b000) => (Instr::And, AddrMode::IndirectX),
+        (0b01, 0b001, 0b001) => (Instr::And, AddrMode::Zeropage),
+        (0b01, 0b001, 0b010) => (Instr::And, AddrMode::Immediate),
+        (0b01, 0b001, 0b011) => (Instr::And, AddrMode::Absolute),
+        (0b01, 0b001, 0b100) => (Instr::And, AddrMode::IndirectY),
+        (0b01, 0b001, 0b101) => (Instr::And, AddrMode::ZeropageX),
+        (0b01, 0b001, 0b110) => (Instr::And, AddrMode::AbsoluteY),
+        (0b01, 0b001, 0b111) => (Instr::And, AddrMode::AbsoluteX),
 
-        (0b01, 0b010, 0b000) => (Opcode::Eor, AddressingMode::IndirectX),
-        (0b01, 0b010, 0b001) => (Opcode::Eor, AddressingMode::Zeropage),
-        (0b01, 0b010, 0b010) => (Opcode::Eor, AddressingMode::Immediate),
-        (0b01, 0b010, 0b011) => (Opcode::Eor, AddressingMode::Absolute),
-        (0b01, 0b010, 0b100) => (Opcode::Eor, AddressingMode::IndirectY),
-        (0b01, 0b010, 0b101) => (Opcode::Eor, AddressingMode::ZeropageX),
-        (0b01, 0b010, 0b110) => (Opcode::Eor, AddressingMode::AbsoluteY),
-        (0b01, 0b010, 0b111) => (Opcode::Eor, AddressingMode::AbsoluteX),
+        (0b01, 0b010, 0b000) => (Instr::Eor, AddrMode::IndirectX),
+        (0b01, 0b010, 0b001) => (Instr::Eor, AddrMode::Zeropage),
+        (0b01, 0b010, 0b010) => (Instr::Eor, AddrMode::Immediate),
+        (0b01, 0b010, 0b011) => (Instr::Eor, AddrMode::Absolute),
+        (0b01, 0b010, 0b100) => (Instr::Eor, AddrMode::IndirectY),
+        (0b01, 0b010, 0b101) => (Instr::Eor, AddrMode::ZeropageX),
+        (0b01, 0b010, 0b110) => (Instr::Eor, AddrMode::AbsoluteY),
+        (0b01, 0b010, 0b111) => (Instr::Eor, AddrMode::AbsoluteX),
 
-        (0b01, 0b011, 0b000) => (Opcode::Adc, AddressingMode::IndirectX),
-        (0b01, 0b011, 0b001) => (Opcode::Adc, AddressingMode::Zeropage),
-        (0b01, 0b011, 0b010) => (Opcode::Adc, AddressingMode::Immediate),
-        (0b01, 0b011, 0b011) => (Opcode::Adc, AddressingMode::Absolute),
-        (0b01, 0b011, 0b100) => (Opcode::Adc, AddressingMode::IndirectY),
-        (0b01, 0b011, 0b101) => (Opcode::Adc, AddressingMode::ZeropageX),
-        (0b01, 0b011, 0b110) => (Opcode::Adc, AddressingMode::AbsoluteY),
-        (0b01, 0b011, 0b111) => (Opcode::Adc, AddressingMode::AbsoluteX),
+        (0b01, 0b011, 0b000) => (Instr::Adc, AddrMode::IndirectX),
+        (0b01, 0b011, 0b001) => (Instr::Adc, AddrMode::Zeropage),
+        (0b01, 0b011, 0b010) => (Instr::Adc, AddrMode::Immediate),
+        (0b01, 0b011, 0b011) => (Instr::Adc, AddrMode::Absolute),
+        (0b01, 0b011, 0b100) => (Instr::Adc, AddrMode::IndirectY),
+        (0b01, 0b011, 0b101) => (Instr::Adc, AddrMode::ZeropageX),
+        (0b01, 0b011, 0b110) => (Instr::Adc, AddrMode::AbsoluteY),
+        (0b01, 0b011, 0b111) => (Instr::Adc, AddrMode::AbsoluteX),
 
-        (0b01, 0b100, 0b000) => (Opcode::Sta, AddressingMode::IndirectX),
-        (0b01, 0b100, 0b001) => (Opcode::Sta, AddressingMode::Zeropage),
-        (0b01, 0b100, 0b011) => (Opcode::Sta, AddressingMode::Absolute),
-        (0b01, 0b100, 0b100) => (Opcode::Sta, AddressingMode::IndirectY),
-        (0b01, 0b100, 0b101) => (Opcode::Sta, AddressingMode::ZeropageX),
-        (0b01, 0b100, 0b110) => (Opcode::Sta, AddressingMode::AbsoluteY),
-        (0b01, 0b100, 0b111) => (Opcode::Sta, AddressingMode::AbsoluteX),
+        (0b01, 0b100, 0b000) => (Instr::Sta, AddrMode::IndirectX),
+        (0b01, 0b100, 0b001) => (Instr::Sta, AddrMode::Zeropage),
+        (0b01, 0b100, 0b011) => (Instr::Sta, AddrMode::Absolute),
+        (0b01, 0b100, 0b100) => (Instr::Sta, AddrMode::IndirectY),
+        (0b01, 0b100, 0b101) => (Instr::Sta, AddrMode::ZeropageX),
+        (0b01, 0b100, 0b110) => (Instr::Sta, AddrMode::AbsoluteY),
+        (0b01, 0b100, 0b111) => (Instr::Sta, AddrMode::AbsoluteX),
 
-        (0b01, 0b101, 0b000) => (Opcode::Lda, AddressingMode::IndirectX),
-        (0b01, 0b101, 0b001) => (Opcode::Lda, AddressingMode::Zeropage),
-        (0b01, 0b101, 0b010) => (Opcode::Lda, AddressingMode::Immediate),
-        (0b01, 0b101, 0b011) => (Opcode::Lda, AddressingMode::Absolute),
-        (0b01, 0b101, 0b100) => (Opcode::Lda, AddressingMode::IndirectY),
-        (0b01, 0b101, 0b101) => (Opcode::Lda, AddressingMode::ZeropageX),
-        (0b01, 0b101, 0b110) => (Opcode::Lda, AddressingMode::AbsoluteY),
-        (0b01, 0b101, 0b111) => (Opcode::Lda, AddressingMode::AbsoluteX),
+        (0b01, 0b101, 0b000) => (Instr::Lda, AddrMode::IndirectX),
+        (0b01, 0b101, 0b001) => (Instr::Lda, AddrMode::Zeropage),
+        (0b01, 0b101, 0b010) => (Instr::Lda, AddrMode::Immediate),
+        (0b01, 0b101, 0b011) => (Instr::Lda, AddrMode::Absolute),
+        (0b01, 0b101, 0b100) => (Instr::Lda, AddrMode::IndirectY),
+        (0b01, 0b101, 0b101) => (Instr::Lda, AddrMode::ZeropageX),
+        (0b01, 0b101, 0b110) => (Instr::Lda, AddrMode::AbsoluteY),
+        (0b01, 0b101, 0b111) => (Instr::Lda, AddrMode::AbsoluteX),
 
-        (0b01, 0b110, 0b000) => (Opcode::Cmp, AddressingMode::IndirectX),
-        (0b01, 0b110, 0b001) => (Opcode::Cmp, AddressingMode::Zeropage),
-        (0b01, 0b110, 0b010) => (Opcode::Cmp, AddressingMode::Immediate),
-        (0b01, 0b110, 0b011) => (Opcode::Cmp, AddressingMode::Absolute),
-        (0b01, 0b110, 0b100) => (Opcode::Cmp, AddressingMode::IndirectY),
-        (0b01, 0b110, 0b101) => (Opcode::Cmp, AddressingMode::ZeropageX),
-        (0b01, 0b110, 0b110) => (Opcode::Cmp, AddressingMode::AbsoluteY),
-        (0b01, 0b110, 0b111) => (Opcode::Cmp, AddressingMode::AbsoluteX),
+        (0b01, 0b110, 0b000) => (Instr::Cmp, AddrMode::IndirectX),
+        (0b01, 0b110, 0b001) => (Instr::Cmp, AddrMode::Zeropage),
+        (0b01, 0b110, 0b010) => (Instr::Cmp, AddrMode::Immediate),
+        (0b01, 0b110, 0b011) => (Instr::Cmp, AddrMode::Absolute),
+        (0b01, 0b110, 0b100) => (Instr::Cmp, AddrMode::IndirectY),
+        (0b01, 0b110, 0b101) => (Instr::Cmp, AddrMode::ZeropageX),
+        (0b01, 0b110, 0b110) => (Instr::Cmp, AddrMode::AbsoluteY),
+        (0b01, 0b110, 0b111) => (Instr::Cmp, AddrMode::AbsoluteX),
 
-        (0b01, 0b111, 0b000) => (Opcode::Sbc, AddressingMode::IndirectX),
-        (0b01, 0b111, 0b001) => (Opcode::Sbc, AddressingMode::Zeropage),
-        (0b01, 0b111, 0b010) => (Opcode::Sbc, AddressingMode::Immediate),
-        (0b01, 0b111, 0b011) => (Opcode::Sbc, AddressingMode::Absolute),
-        (0b01, 0b111, 0b100) => (Opcode::Sbc, AddressingMode::IndirectY),
-        (0b01, 0b111, 0b101) => (Opcode::Sbc, AddressingMode::ZeropageX),
-        (0b01, 0b111, 0b110) => (Opcode::Sbc, AddressingMode::AbsoluteY),
-        (0b01, 0b111, 0b111) => (Opcode::Sbc, AddressingMode::AbsoluteX),
+        (0b01, 0b111, 0b000) => (Instr::Sbc, AddrMode::IndirectX),
+        (0b01, 0b111, 0b001) => (Instr::Sbc, AddrMode::Zeropage),
+        (0b01, 0b111, 0b010) => (Instr::Sbc, AddrMode::Immediate),
+        (0b01, 0b111, 0b011) => (Instr::Sbc, AddrMode::Absolute),
+        (0b01, 0b111, 0b100) => (Instr::Sbc, AddrMode::IndirectY),
+        (0b01, 0b111, 0b101) => (Instr::Sbc, AddrMode::ZeropageX),
+        (0b01, 0b111, 0b110) => (Instr::Sbc, AddrMode::AbsoluteY),
+        (0b01, 0b111, 0b111) => (Instr::Sbc, AddrMode::AbsoluteX),
 
-        (0b10, 0b000, 0b001) => (Opcode::Asl, AddressingMode::Zeropage),
-        (0b10, 0b000, 0b010) => (Opcode::Asl, AddressingMode::Accumulator),
-        (0b10, 0b000, 0b011) => (Opcode::Asl, AddressingMode::Absolute),
-        (0b10, 0b000, 0b101) => (Opcode::Asl, AddressingMode::ZeropageX),
-        (0b10, 0b000, 0b111) => (Opcode::Asl, AddressingMode::AbsoluteX),
+        (0b10, 0b000, 0b001) => (Instr::Asl, AddrMode::Zeropage),
+        (0b10, 0b000, 0b010) => (Instr::Asl, AddrMode::Accumulator),
+        (0b10, 0b000, 0b011) => (Instr::Asl, AddrMode::Absolute),
+        (0b10, 0b000, 0b101) => (Instr::Asl, AddrMode::ZeropageX),
+        (0b10, 0b000, 0b111) => (Instr::Asl, AddrMode::AbsoluteX),
 
-        (0b10, 0b001, 0b001) => (Opcode::Rol, AddressingMode::Zeropage),
-        (0b10, 0b001, 0b010) => (Opcode::Rol, AddressingMode::Accumulator),
-        (0b10, 0b001, 0b011) => (Opcode::Rol, AddressingMode::Absolute),
-        (0b10, 0b001, 0b101) => (Opcode::Rol, AddressingMode::ZeropageX),
-        (0b10, 0b001, 0b111) => (Opcode::Rol, AddressingMode::AbsoluteX),
+        (0b10, 0b001, 0b001) => (Instr::Rol, AddrMode::Zeropage),
+        (0b10, 0b001, 0b010) => (Instr::Rol, AddrMode::Accumulator),
+        (0b10, 0b001, 0b011) => (Instr::Rol, AddrMode::Absolute),
+        (0b10, 0b001, 0b101) => (Instr::Rol, AddrMode::ZeropageX),
+        (0b10, 0b001, 0b111) => (Instr::Rol, AddrMode::AbsoluteX),
 
-        (0b10, 0b010, 0b001) => (Opcode::Lsr, AddressingMode::Zeropage),
-        (0b10, 0b010, 0b010) => (Opcode::Lsr, AddressingMode::Accumulator),
-        (0b10, 0b010, 0b011) => (Opcode::Lsr, AddressingMode::Absolute),
-        (0b10, 0b010, 0b101) => (Opcode::Lsr, AddressingMode::ZeropageX),
-        (0b10, 0b010, 0b111) => (Opcode::Lsr, AddressingMode::AbsoluteX),
+        (0b10, 0b010, 0b001) => (Instr::Lsr, AddrMode::Zeropage),
+        (0b10, 0b010, 0b010) => (Instr::Lsr, AddrMode::Accumulator),
+        (0b10, 0b010, 0b011) => (Instr::Lsr, AddrMode::Absolute),
+        (0b10, 0b010, 0b101) => (Instr::Lsr, AddrMode::ZeropageX),
+        (0b10, 0b010, 0b111) => (Instr::Lsr, AddrMode::AbsoluteX),
 
-        (0b10, 0b011, 0b001) => (Opcode::Ror, AddressingMode::Zeropage),
-        (0b10, 0b011, 0b010) => (Opcode::Ror, AddressingMode::Accumulator),
-        (0b10, 0b011, 0b011) => (Opcode::Ror, AddressingMode::Absolute),
-        (0b10, 0b011, 0b101) => (Opcode::Ror, AddressingMode::ZeropageX),
-        (0b10, 0b011, 0b111) => (Opcode::Ror, AddressingMode::AbsoluteX),
+        (0b10, 0b011, 0b001) => (Instr::Ror, AddrMode::Zeropage),
+        (0b10, 0b011, 0b010) => (Instr::Ror, AddrMode::Accumulator),
+        (0b10, 0b011, 0b011) => (Instr::Ror, AddrMode::Absolute),
+        (0b10, 0b011, 0b101) => (Instr::Ror, AddrMode::ZeropageX),
+        (0b10, 0b011, 0b111) => (Instr::Ror, AddrMode::AbsoluteX),
 
-        (0b10, 0b100, 0b001) => (Opcode::Stx, AddressingMode::Zeropage),
-        (0b10, 0b100, 0b011) => (Opcode::Stx, AddressingMode::Absolute),
-        (0b10, 0b100, 0b101) => (Opcode::Stx, AddressingMode::ZeropageY),
+        (0b10, 0b100, 0b001) => (Instr::Stx, AddrMode::Zeropage),
+        (0b10, 0b100, 0b011) => (Instr::Stx, AddrMode::Absolute),
+        (0b10, 0b100, 0b101) => (Instr::Stx, AddrMode::ZeropageY),
 
-        (0b10, 0b101, 0b000) => (Opcode::Ldx, AddressingMode::Immediate),
-        (0b10, 0b101, 0b001) => (Opcode::Ldx, AddressingMode::Zeropage),
-        (0b10, 0b101, 0b011) => (Opcode::Ldx, AddressingMode::Absolute),
-        (0b10, 0b101, 0b101) => (Opcode::Ldx, AddressingMode::ZeropageY),
-        (0b10, 0b101, 0b111) => (Opcode::Ldx, AddressingMode::AbsoluteY),
+        (0b10, 0b101, 0b000) => (Instr::Ldx, AddrMode::Immediate),
+        (0b10, 0b101, 0b001) => (Instr::Ldx, AddrMode::Zeropage),
+        (0b10, 0b101, 0b011) => (Instr::Ldx, AddrMode::Absolute),
+        (0b10, 0b101, 0b101) => (Instr::Ldx, AddrMode::ZeropageY),
+        (0b10, 0b101, 0b111) => (Instr::Ldx, AddrMode::AbsoluteY),
 
-        (0b10, 0b110, 0b001) => (Opcode::Dec, AddressingMode::Zeropage),
-        (0b10, 0b110, 0b011) => (Opcode::Dec, AddressingMode::Absolute),
-        (0b10, 0b110, 0b101) => (Opcode::Dec, AddressingMode::ZeropageX),
-        (0b10, 0b110, 0b111) => (Opcode::Dec, AddressingMode::AbsoluteX),
+        (0b10, 0b110, 0b001) => (Instr::Dec, AddrMode::Zeropage),
+        (0b10, 0b110, 0b011) => (Instr::Dec, AddrMode::Absolute),
+        (0b10, 0b110, 0b101) => (Instr::Dec, AddrMode::ZeropageX),
+        (0b10, 0b110, 0b111) => (Instr::Dec, AddrMode::AbsoluteX),
 
-        (0b10, 0b111, 0b001) => (Opcode::Inc, AddressingMode::Zeropage),
-        (0b10, 0b111, 0b011) => (Opcode::Inc, AddressingMode::Absolute),
-        (0b10, 0b111, 0b101) => (Opcode::Inc, AddressingMode::ZeropageX),
-        (0b10, 0b111, 0b111) => (Opcode::Inc, AddressingMode::AbsoluteX),
+        (0b10, 0b111, 0b001) => (Instr::Inc, AddrMode::Zeropage),
+        (0b10, 0b111, 0b011) => (Instr::Inc, AddrMode::Absolute),
+        (0b10, 0b111, 0b101) => (Instr::Inc, AddrMode::ZeropageX),
+        (0b10, 0b111, 0b111) => (Instr::Inc, AddrMode::AbsoluteX),
 
-        (0b00, 0b001, 0b001) => (Opcode::Bit, AddressingMode::Zeropage),
-        (0b00, 0b001, 0b011) => (Opcode::Bit, AddressingMode::Absolute),
+        (0b00, 0b001, 0b001) => (Instr::Bit, AddrMode::Zeropage),
+        (0b00, 0b001, 0b011) => (Instr::Bit, AddrMode::Absolute),
 
-        (0b00, 0b010, 0b011) => (Opcode::Jmp, AddressingMode::Absolute),
+        (0b00, 0b010, 0b011) => (Instr::Jmp, AddrMode::Absolute),
 
-        (0b00, 0b011, 0b011) => (Opcode::Jmp, AddressingMode::Indirect),
+        (0b00, 0b011, 0b011) => (Instr::Jmp, AddrMode::Indirect),
 
-        (0b00, 0b100, 0b001) => (Opcode::Sty, AddressingMode::Zeropage),
-        (0b00, 0b100, 0b011) => (Opcode::Sty, AddressingMode::Absolute),
-        (0b00, 0b100, 0b101) => (Opcode::Sty, AddressingMode::ZeropageX),
+        (0b00, 0b100, 0b001) => (Instr::Sty, AddrMode::Zeropage),
+        (0b00, 0b100, 0b011) => (Instr::Sty, AddrMode::Absolute),
+        (0b00, 0b100, 0b101) => (Instr::Sty, AddrMode::ZeropageX),
 
-        (0b00, 0b101, 0b000) => (Opcode::Ldy, AddressingMode::Absolute),
-        (0b00, 0b101, 0b001) => (Opcode::Ldy, AddressingMode::Zeropage),
-        (0b00, 0b101, 0b011) => (Opcode::Ldy, AddressingMode::Absolute),
-        (0b00, 0b101, 0b101) => (Opcode::Ldy, AddressingMode::ZeropageX),
-        (0b00, 0b101, 0b111) => (Opcode::Ldy, AddressingMode::AbsoluteX),
+        (0b00, 0b101, 0b000) => (Instr::Ldy, AddrMode::Absolute),
+        (0b00, 0b101, 0b001) => (Instr::Ldy, AddrMode::Zeropage),
+        (0b00, 0b101, 0b011) => (Instr::Ldy, AddrMode::Absolute),
+        (0b00, 0b101, 0b101) => (Instr::Ldy, AddrMode::ZeropageX),
+        (0b00, 0b101, 0b111) => (Instr::Ldy, AddrMode::AbsoluteX),
 
-        (0b00, 0b110, 0b000) => (Opcode::Cpy, AddressingMode::Immediate),
-        (0b00, 0b110, 0b001) => (Opcode::Cpy, AddressingMode::Zeropage),
-        (0b00, 0b110, 0b011) => (Opcode::Cpy, AddressingMode::Absolute),
+        (0b00, 0b110, 0b000) => (Instr::Cpy, AddrMode::Immediate),
+        (0b00, 0b110, 0b001) => (Instr::Cpy, AddrMode::Zeropage),
+        (0b00, 0b110, 0b011) => (Instr::Cpy, AddrMode::Absolute),
 
-        (0b00, 0b111, 0b000) => (Opcode::Cpx, AddressingMode::Immediate),
-        (0b00, 0b111, 0b001) => (Opcode::Cpx, AddressingMode::Zeropage),
-        (0b00, 0b111, 0b011) => (Opcode::Cpx, AddressingMode::Absolute),
+        (0b00, 0b111, 0b000) => (Instr::Cpx, AddrMode::Immediate),
+        (0b00, 0b111, 0b001) => (Instr::Cpx, AddrMode::Zeropage),
+        (0b00, 0b111, 0b011) => (Instr::Cpx, AddrMode::Absolute),
 
-        (0b00, 0b000, 0b100) => (Opcode::Bpl, AddressingMode::Implied),
+        (0b00, 0b000, 0b100) => (Instr::Bpl, AddrMode::Implied),
 
-        (0b00, 0b001, 0b100) => (Opcode::Bmi, AddressingMode::Implied),
+        (0b00, 0b001, 0b100) => (Instr::Bmi, AddrMode::Implied),
 
-        (0b00, 0b010, 0b100) => (Opcode::Bvc, AddressingMode::Implied),
+        (0b00, 0b010, 0b100) => (Instr::Bvc, AddrMode::Implied),
 
-        (0b00, 0b011, 0b100) => (Opcode::Bvs, AddressingMode::Implied),
+        (0b00, 0b011, 0b100) => (Instr::Bvs, AddrMode::Implied),
 
-        (0b00, 0b100, 0b100) => (Opcode::Bcc, AddressingMode::Implied),
+        (0b00, 0b100, 0b100) => (Instr::Bcc, AddrMode::Implied),
 
-        (0b00, 0b101, 0b100) => (Opcode::Bcs, AddressingMode::Implied),
+        (0b00, 0b101, 0b100) => (Instr::Bcs, AddrMode::Implied),
 
-        (0b00, 0b110, 0b100) => (Opcode::Bne, AddressingMode::Implied),
+        (0b00, 0b110, 0b100) => (Instr::Bne, AddrMode::Implied),
 
-        (0b00, 0b111, 0b100) => (Opcode::Beq, AddressingMode::Implied),
+        (0b00, 0b111, 0b100) => (Instr::Beq, AddrMode::Implied),
 
-        (0b00, 0b000, 0b000) => (Opcode::Brk, AddressingMode::Implied),
+        (0b00, 0b000, 0b000) => (Instr::Brk, AddrMode::Implied),
 
-        (0b00, 0b001, 0b000) => (Opcode::Jsr, AddressingMode::Absolute),
+        (0b00, 0b001, 0b000) => (Instr::Jsr, AddrMode::Absolute),
 
-        (0b00, 0b010, 0b000) => (Opcode::Rti, AddressingMode::Implied),
+        (0b00, 0b010, 0b000) => (Instr::Rti, AddrMode::Implied),
 
-        (0b00, 0b011, 0b000) => (Opcode::Rts, AddressingMode::Implied),
+        (0b00, 0b011, 0b000) => (Instr::Rts, AddrMode::Implied),
 
-        (0b00, 0b000, 0b010) => (Opcode::Php, AddressingMode::Implied),
+        (0b00, 0b000, 0b010) => (Instr::Php, AddrMode::Implied),
 
-        (0b00, 0b001, 0b010) => (Opcode::Plp, AddressingMode::Implied),
+        (0b00, 0b001, 0b010) => (Instr::Plp, AddrMode::Implied),
 
-        (0b00, 0b010, 0b010) => (Opcode::Pha, AddressingMode::Implied),
+        (0b00, 0b010, 0b010) => (Instr::Pha, AddrMode::Implied),
 
-        (0b00, 0b011, 0b010) => (Opcode::Pla, AddressingMode::Implied),
+        (0b00, 0b011, 0b010) => (Instr::Pla, AddrMode::Implied),
 
-        (0b00, 0b100, 0b010) => (Opcode::Dey, AddressingMode::Implied),
+        (0b00, 0b100, 0b010) => (Instr::Dey, AddrMode::Implied),
 
-        (0b00, 0b101, 0b010) => (Opcode::Tay, AddressingMode::Implied),
+        (0b00, 0b101, 0b010) => (Instr::Tay, AddrMode::Implied),
 
-        (0b00, 0b110, 0b010) => (Opcode::Iny, AddressingMode::Implied),
+        (0b00, 0b110, 0b010) => (Instr::Iny, AddrMode::Implied),
 
-        (0b00, 0b111, 0b010) => (Opcode::Inx, AddressingMode::Implied),
+        (0b00, 0b111, 0b010) => (Instr::Inx, AddrMode::Implied),
 
-        (0b00, 0b000, 0b110) => (Opcode::Clc, AddressingMode::Implied),
+        (0b00, 0b000, 0b110) => (Instr::Clc, AddrMode::Implied),
 
-        (0b00, 0b001, 0b110) => (Opcode::Sec, AddressingMode::Implied),
+        (0b00, 0b001, 0b110) => (Instr::Sec, AddrMode::Implied),
 
-        (0b00, 0b010, 0b110) => (Opcode::Cli, AddressingMode::Implied),
+        (0b00, 0b010, 0b110) => (Instr::Cli, AddrMode::Implied),
 
-        (0b00, 0b011, 0b110) => (Opcode::Sei, AddressingMode::Implied),
+        (0b00, 0b011, 0b110) => (Instr::Sei, AddrMode::Implied),
 
-        (0b00, 0b100, 0b110) => (Opcode::Tya, AddressingMode::Implied),
+        (0b00, 0b100, 0b110) => (Instr::Tya, AddrMode::Implied),
 
-        (0b00, 0b101, 0b110) => (Opcode::Clv, AddressingMode::Implied),
+        (0b00, 0b101, 0b110) => (Instr::Clv, AddrMode::Implied),
 
-        (0b00, 0b110, 0b110) => (Opcode::Cld, AddressingMode::Implied),
+        (0b00, 0b110, 0b110) => (Instr::Cld, AddrMode::Implied),
 
-        (0b00, 0b111, 0b110) => (Opcode::Sed, AddressingMode::Implied),
+        (0b00, 0b111, 0b110) => (Instr::Sed, AddrMode::Implied),
 
-        (0b10, 0b100, 0b010) => (Opcode::Txa, AddressingMode::Implied),
+        (0b10, 0b100, 0b010) => (Instr::Txa, AddrMode::Implied),
 
-        (0b10, 0b100, 0b110) => (Opcode::Txs, AddressingMode::Implied),
+        (0b10, 0b100, 0b110) => (Instr::Txs, AddrMode::Implied),
 
-        (0b10, 0b101, 0b010) => (Opcode::Tax, AddressingMode::Implied),
+        (0b10, 0b101, 0b010) => (Instr::Tax, AddrMode::Implied),
 
-        (0b10, 0b101, 0b110) => (Opcode::Tsx, AddressingMode::Implied),
+        (0b10, 0b101, 0b110) => (Instr::Tsx, AddrMode::Implied),
 
-        (0b10, 0b110, 0b010) => (Opcode::Dex, AddressingMode::Implied),
+        (0b10, 0b110, 0b010) => (Instr::Dex, AddrMode::Implied),
 
-        (0b10, 0b111, 0b010) => (Opcode::Nop, AddressingMode::Implied),
+        (0b10, 0b111, 0b010) => (Instr::Nop, AddrMode::Implied),
 
-        _ => (Opcode::Illegal, AddressingMode::Implied),
+        _ => (Instr::Illegal, AddrMode::Implied),
     }
 }
-
-fn nextInstr(curr: Instr) -> Instr {}
