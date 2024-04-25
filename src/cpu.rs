@@ -26,6 +26,7 @@ impl Cpu {
                 fetch_opcode: false,
                 saved_byte: 0,
                 saved_addr: 0,
+                page_crossed: false,
             },
         }
     }
@@ -370,11 +371,20 @@ impl Cpu {
                 self.instr_state.fetch_opcode = true;
             }
 
-            (Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror, AddrMode::ZeropageX, 4) => {
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::ZeropageX,
+                4,
+            ) => {
                 self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
             }
             (
-                instr @ (Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror),
+                instr @ (Instr::Asl
+                | Instr::Lsr
+                | Instr::Rol
+                | Instr::Ror
+                | Instr::Inc
+                | Instr::Dec),
                 AddrMode::ZeropageX,
                 5,
             ) => {
@@ -386,7 +396,11 @@ impl Cpu {
                 self.instr_state.saved_byte =
                     self.do_opcode_rmw(self.instr_state.saved_byte, instr);
             }
-            (Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror, AddrMode::ZeropageX, 6) => {
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::ZeropageX,
+                6,
+            ) => {
                 self.write(
                     self.instr_state.saved_byte,
                     self.instr_state.saved_addr,
@@ -419,6 +433,164 @@ impl Cpu {
                 self.instr_state.fetch_opcode = true;
             }
 
+            (_, AddrMode::AbsoluteX | AddrMode::AbsoluteY, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (_, addr_mode @ (AddrMode::AbsoluteX | AddrMode::AbsoluteY), 3) => {
+                let register = if let AddrMode::AbsoluteX = addr_mode {
+                    self.x
+                } else {
+                    self.y
+                };
+
+                let addr_high = self.read(self.pc, bus);
+                self.pc += 1;
+                let (addr_low, page_crossed) =
+                    self.instr_state.saved_byte.overflowing_add(register);
+                self.instr_state.page_crossed = page_crossed;
+                self.instr_state.saved_addr = addr_low as u16 | (addr_high as u16) << 8;
+            }
+
+            (
+                instr @ (Instr::Lda
+                | Instr::Ldx
+                | Instr::Ldy
+                | Instr::Eor
+                | Instr::And
+                | Instr::Ora
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp),
+                AddrMode::AbsoluteX | AddrMode::AbsoluteY,
+                4,
+            ) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                if self.instr_state.page_crossed {
+                    self.instr_state.saved_addr += 0x0100;
+                } else {
+                    self.do_opcode_read(val, instr);
+                    self.instr_state.fetch_opcode = true;
+                }
+            }
+
+            (
+                instr @ (Instr::Lda
+                | Instr::Ldy
+                | Instr::Eor
+                | Instr::And
+                | Instr::Ora
+                | Instr::Adc
+                | Instr::Sbc
+                | Instr::Cmp),
+                AddrMode::AbsoluteX | AddrMode::AbsoluteY,
+                5,
+            ) => {
+                let val = self.read(self.instr_state.saved_addr, bus);
+                self.do_opcode_read(val, instr);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::AbsoluteX,
+                4,
+            ) => {
+                let _ = self.read(self.instr_state.saved_addr, bus);
+                if self.instr_state.page_crossed {
+                    self.instr_state.saved_addr += 0x100;
+                }
+            }
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::AbsoluteX,
+                5,
+            ) => {
+                self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
+            }
+            (
+                instr @ (Instr::Asl
+                | Instr::Lsr
+                | Instr::Rol
+                | Instr::Ror
+                | Instr::Inc
+                | Instr::Dec),
+                AddrMode::AbsoluteX,
+                6,
+            ) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.saved_byte =
+                    self.do_opcode_rmw(self.instr_state.saved_byte, instr);
+            }
+            (
+                Instr::Asl | Instr::Lsr | Instr::Rol | Instr::Ror | Instr::Inc | Instr::Dec,
+                AddrMode::AbsoluteX,
+                7,
+            ) => {
+                self.write(
+                    self.instr_state.saved_byte,
+                    self.instr_state.saved_addr,
+                    bus,
+                );
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (Instr::Sta, AddrMode::AbsoluteX | AddrMode::AbsoluteY, 4) => {
+                self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
+                if self.instr_state.page_crossed {
+                    self.instr_state.saved_addr += 0x0100;
+                }
+            }
+
+            (instr @ Instr::Sta, AddrMode::AbsoluteX | AddrMode::AbsoluteY, 5) => {
+                let val = self.do_opcode_write(instr);
+                self.write(val, self.instr_state.saved_addr, bus);
+                self.instr_state.fetch_opcode = true;
+            }
+
+            (_, AddrMode::Relative, 2) => {
+                self.instr_state.saved_byte = self.read(self.pc, bus);
+                self.pc += 1;
+            }
+            (instr, AddrMode::Relative, 3) => {
+                let next_opcode = self.read(self.pc, bus);
+                if self.do_opcode_relative(instr) {
+                    let (pcl, page_crossed) =
+                        (self.pc as u8).overflowing_add(self.instr_state.saved_byte as i8 as u8);
+                    self.pc = (self.pc & 0xff00) | pcl as u16;
+                    self.instr_state.page_crossed = page_crossed;
+                } else {
+                    let (instr, addr_mode) = decode(next_opcode);
+                    self.instr_state.instr = instr;
+                    self.instr_state.addr_mode = addr_mode;
+                    self.instr_state.cycle = 2;
+                    self.pc += 1
+                }
+            }
+            (_, AddrMode::Relative, 4) => {
+                let next_opcode = self.read(self.pc, bus);
+                if self.instr_state.page_crossed {
+                    self.pc += 0x0100;
+                } else {
+                    let (instr, addr_mode) = decode(next_opcode);
+                    self.instr_state.instr = instr;
+                    self.instr_state.addr_mode = addr_mode;
+                    self.instr_state.cycle = 2;
+                    self.pc += 1
+                }
+            }
+            (_, AddrMode::Relative, 5) => {
+                let next_opcode = self.read(self.pc, bus);
+                let (instr, addr_mode) = decode(next_opcode);
+                self.instr_state.instr = instr;
+                self.instr_state.addr_mode = addr_mode;
+                self.instr_state.cycle = 2;
+                self.pc += 1
+            }
             _ => todo!(),
         }
 
@@ -539,6 +711,20 @@ impl Cpu {
             Instr::Sta => self.sta(),
             Instr::Stx => self.stx(),
             Instr::Sty => self.sty(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn do_opcode_relative(&self, instr: Instr) -> bool {
+        match instr {
+            Instr::Bcc => !self.p.carry,
+            Instr::Bcs => self.p.carry,
+            Instr::Beq => self.p.zero,
+            Instr::Bmi => self.p.negative,
+            Instr::Bne => !self.p.zero,
+            Instr::Bpl => !self.p.negative,
+            Instr::Bvc => !self.p.overflow,
+            Instr::Bvs => self.p.overflow,
             _ => unreachable!(),
         }
     }
@@ -754,6 +940,7 @@ struct InstrState {
     fetch_opcode: bool,
     saved_byte: u8,
     saved_addr: u16,
+    page_crossed: bool,
 }
 
 #[derive(Clone, Copy)]
