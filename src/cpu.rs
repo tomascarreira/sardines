@@ -13,6 +13,7 @@ pub struct Cpu {
     next_instr: Instr,
     operand: u8,
     address: u16,
+    ir: u8,
 }
 
 impl Cpu {
@@ -38,6 +39,7 @@ impl Cpu {
             next_instr: Instr::FetchOpcode,
             operand: 0,
             address: 0,
+            ir: 0,
         }
     }
 
@@ -46,58 +48,72 @@ impl Cpu {
 
         match self.curr_instr {
             Instr::FetchOpcode => {
-                (self.opcode, self.addressing_mode) = decode(bus.read(self.pc));
-                match (self.opcode, self.addressing_mode) {
-                    (Opcode::Illegal, _) => todo!(),
-
-                    (_, addressing_mode) => match addressing_mode {
-                        AddressingMode::Implied | AddressingMode::Accumulator => {
-                            self.next_instr = Instr::DummyRead
-                        }
-                        AddressingMode::Immediate
-                        | AddressingMode::Zeropage
-                        | AddressingMode::ZeropageX
-                        | AddressingMode::ZeropageY
-                        | AddressingMode::IndirectX
-                        | AddressingMode::IndirectY => self.next_instr = Instr::FetchOperand,
-                        AddressingMode::Absolute
-                        | AddressingMode::AbsoluteX
-                        | AddressingMode::AbsoluteY
-                        | AddressingMode::Indirect
-                        | AddressingMode::Relative => self.next_instr = Instr::FetchAddressLow,
-                    },
-                }
-
+                self.ir = bus.read(self.pc);
                 self.pc += 1;
+                self.next_instr = Instr::DecodeOpcode;
             }
-            Instr::DummyRead => {
-                let _ = bus.read(self.pc);
-                // Do opcode
-                todo!();
-            }
-            Instr::FetchOperand => {
+
+            Instr::DecodeOpcode => {
+                (self.opcode, self.addressing_mode) = decode(bus.read(self.pc));
                 match self.addressing_mode {
+                    AddressingMode::Accumulator => todo!(),
+                    AddressingMode::Absolute => todo!(),
+                    AddressingMode::AbsoluteX => todo!(),
+                    AddressingMode::AbsoluteY => todo!(),
                     AddressingMode::Immediate => {
                         self.operand = bus.read(self.pc);
-                        // Do opcode
-                        todo!();
+                        self.pc += 1;
                         self.next_instr = Instr::FetchOpcode;
+                        self.execute_opcode(bus);
                     }
-                    AddressingMode::Zeropage => {
-                        self.address = bus.read(self.pc) as u16;
-                        self.next_instr = Instr::ReadAddressToOperand;
-                    }
-                    AddressingMode::ZeropageX => todo!(),
-                    AddressingMode::ZeropageY => todo!(),
+                    AddressingMode::Implied => todo!(),
+                    AddressingMode::Indirect => todo!(),
                     AddressingMode::IndirectX => todo!(),
                     AddressingMode::IndirectY => todo!(),
-                    _ => panic!("Cannot be other addressing mode."),
+                    AddressingMode::Relative => todo!(),
+                    AddressingMode::Zeropage => todo!(),
+                    AddressingMode::ZeropageX => todo!(),
+                    AddressingMode::ZeropageY => todo!(),
                 }
-
-                self.pc += 1;
             }
+
             _ => todo!(),
         }
+    }
+
+    fn execute_opcode(&mut self, bus: &mut Bus) {
+        match (self.opcode, self.addressing_mode) {
+            (Opcode::Adc, )
+        }
+    }
+
+    fn adc(&mut self, value: u8) {
+        // TODO: change to carrying_add when its out of nightly or if I decide to use nightly
+        let res: u16 = self.a as u16 + value as u16 + self.p.carry as u16;
+
+        self.p.carry = res > 0xff;
+        self.p.zero = res == 0;
+        self.p.overflow = (((res as u8 ^ self.a) & (res as u8 ^ value)) >> 7) != 0;
+        self.p.negative = (res as i8) < 0;
+
+        self.a = res as u8;
+    }
+
+    fn and(&mut self, value: u8) {
+        let res = self.a & value;
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+    }
+
+    fn asl(&mut self, value: u8) -> u8 {
+        let res = value << 1;
+
+        self.p.carry = value >> 7 == 1;
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        res
     }
 }
 
@@ -209,6 +225,7 @@ enum InstructionType {
 #[derive(Copy, Clone)]
 enum Instr {
     FetchOpcode,
+    DecodeOpcode,
     FetchOperand,
     FetchAddressLow,
     FetchAddressHigh,
