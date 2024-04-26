@@ -53,6 +53,8 @@ pub mod nrom {
     }
 }
 pub mod mmc1 {
+    use std::cell::Cell;
+
     use crate::cpu::bit_to_bool;
     use crate::mapper::Mapper;
 
@@ -65,7 +67,7 @@ pub mod mmc1 {
         chr_bank1: usize,
         prg_bank: PRGBank,
         shift_register: ShiftRegister,
-        write_last_cycle: bool,
+        write_last_cycle: Cell<bool>,
     }
 
     impl MMC1 {
@@ -97,7 +99,7 @@ pub mod mmc1 {
                     prg_ram_chip_enabled: false,
                 },
                 shift_register: ShiftRegister { reg: 0, shifts: 0 },
-                write_last_cycle: false,
+                write_last_cycle: Cell::new(false),
             }
         }
 
@@ -131,7 +133,7 @@ pub mod mmc1 {
 
     impl Mapper for MMC1 {
         fn read(&self, address: u16) -> u8 {
-            // self.write_last_cycle = false;
+            self.write_last_cycle.set(false);
 
             self.prgrom[self.calc_prgrom_addr(address)]
         }
@@ -139,7 +141,7 @@ pub mod mmc1 {
         fn write(&mut self, value: u8, address: u16) {
             if (value >> 7) == 1 && (address >> 15) == 1 {
                 self.shift_register.reset();
-            } else if !self.write_last_cycle && (address >> 15) == 1 {
+            } else if !self.write_last_cycle.get() && (address >> 15) == 1 {
                 if let Some(reg_val) = self.shift_register.shift(value & 0x01) {
                     match address {
                         0x8000..=0x9fff => self.control = Control::from(reg_val),
@@ -150,7 +152,7 @@ pub mod mmc1 {
                     }
                 }
             }
-            // self.write_last_cycle = true;
+            self.write_last_cycle.set(true);
 
             let addr = self.calc_prgrom_addr(address);
             self.prgrom[addr] = value;
