@@ -1135,7 +1135,7 @@ fn bool_to_bit(bool: bool) -> u8 {
     }
 }
 
-fn bit_to_bool(bit: u8) -> bool {
+pub(crate) fn bit_to_bool(bit: u8) -> bool {
     match bit {
         0 => false,
         1 => true,

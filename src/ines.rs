@@ -1,5 +1,6 @@
 use std::process::exit;
 
+#[derive(Debug)]
 pub struct INes {
     pub mapper: usize,
     pub prgrom_size: usize,

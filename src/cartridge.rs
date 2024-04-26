@@ -2,7 +2,7 @@ use std::fs;
 
 use crate::{
     ines::INes,
-    mapper::{Mapper, NROM},
+    mapper::{mmc1::MMC1, nrom::NROM, Mapper},
 };
 
 pub struct Cartridge {
@@ -14,14 +14,13 @@ impl Cartridge {
         let rom = fs::read(file_name).unwrap();
         let ines = INes::new(&rom[0..16]);
 
-        let mapper = match ines.mapper {
-            0 => NROM::new(&rom, ines.prgrom_size, ines.chrrom_size),
+        let mapper: Box<dyn Mapper> = match ines.mapper {
+            0 => Box::new(NROM::new(&rom, ines.prgrom_size, ines.chrrom_size)),
+            1 => Box::new(MMC1::new(&rom, ines.prgrom_size, ines.chrrom_size)),
             _ => unimplemented!("Unsupported mapper: {}", ines.mapper),
         };
 
-        Cartridge {
-            mapper: Box::new(mapper),
-        }
+        Cartridge { mapper }
     }
 
     pub fn read(&self, address: u16) -> u8 {
