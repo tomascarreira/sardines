@@ -1282,6 +1282,7 @@ enum AddrMode {
     Zeropage,
     ZeropageX,
     ZeropageY,
+    Illegal,
 }
 
 // Fix: return error  (maybe use thiserror or just use anyhow)
@@ -1499,6 +1500,6 @@ fn decode(opcode: u8) -> (Instr, AddrMode) {
 
         (0b10, 0b111, 0b010) => (Instr::Nop, AddrMode::Implied),
 
-        _ => (Instr::Illegal, AddrMode::Implied),
+        _ => (Instr::Illegal, AddrMode::Illegal),
     }
 }
