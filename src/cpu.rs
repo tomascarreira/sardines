@@ -181,7 +181,7 @@ impl Cpu {
             (instr, AddrMode::Immediate, 2) => {
                 let val = self.read(self.pc, bus);
                 self.pc += 1;
-                self.do_opcode_imm(val, instr);
+                self.do_opcode_read(val, instr);
                 self.instr_state.fetch_opcode = true;
             }
 
@@ -782,33 +782,33 @@ impl Cpu {
         }
     }
 
-    fn do_opcode_imm(&mut self, value: u8, instr: Instr) {
-        match instr {
-            Instr::Adc => self.a = self.adc(value),
-            Instr::And => self.a = self.and(value),
-            Instr::Cmp => self.cmp(value),
-            Instr::Cpx => self.cpx(value),
-            Instr::Cpy => self.cpy(value),
-            Instr::Eor => self.a = self.eor(value),
-            Instr::Lda => self.a = self.lda(value),
-            Instr::Ldx => self.x = self.ldx(value),
-            Instr::Ldy => self.y = self.ldy(value),
-            Instr::Ora => self.a = self.ora(value),
-            Instr::Sbc => self.a = self.adc(!value),
-            _ => unreachable!(),
-        }
-    }
+    // fn do_opcode_imm(&mut self, value: u8, instr: Instr) {
+    //     match instr {
+    //         Instr::Adc => self.adc(value),
+    //         Instr::And => self.and(value),
+    //         Instr::Cmp => self.cmp(value),
+    //         Instr::Cpx => self.cpx(value),
+    //         Instr::Cpy => self.cpy(value),
+    //         Instr::Eor => self.eor(value),
+    //         Instr::Lda => self.lda(value),
+    //         Instr::Ldx => self.ldx(value),
+    //         Instr::Ldy => self.ldy(value),
+    //         Instr::Ora => self.ora(value),
+    //         Instr::Sbc => self.adc(!value),
+    //         _ => unreachable!(),
+    //     }
+    // }
 
     fn do_opcode_read(&mut self, value: u8, instr: Instr) {
         match instr {
-            Instr::Lda => self.a = self.lda(value),
-            Instr::Ldx => self.x = self.ldx(value),
-            Instr::Ldy => self.y = self.ldy(value),
-            Instr::Eor => self.a = self.eor(value),
-            Instr::And => self.a = self.eor(value),
-            Instr::Ora => self.a = self.ora(value),
-            Instr::Adc => self.a = self.adc(value),
-            Instr::Sbc => self.a = self.adc(!value),
+            Instr::Lda => self.lda(value),
+            Instr::Ldx => self.ldx(value),
+            Instr::Ldy => self.ldy(value),
+            Instr::Eor => self.eor(value),
+            Instr::And => self.and(value),
+            Instr::Ora => self.ora(value),
+            Instr::Adc => self.adc(value),
+            Instr::Sbc => self.adc(!value),
             Instr::Cmp => self.cmp(value),
             Instr::Cpx => self.cpx(value),
             Instr::Cpy => self.cpy(value),
@@ -852,7 +852,7 @@ impl Cpu {
         }
     }
 
-    fn adc(&mut self, value: u8) -> u8 {
+    fn adc(&mut self, value: u8) {
         // TODO: change to carrying_add when its out of nightly or if I decide to use nightly
         let res: u16 = self.a as u16 + value as u16 + self.p.carry as u16;
 
@@ -861,16 +861,16 @@ impl Cpu {
         self.p.overflow = (((res as u8 ^ self.a) & (res as u8 ^ value)) >> 7) != 0;
         self.p.negative = (res as i8) < 0;
 
-        res as u8
+        self.a = res as u8;
     }
 
-    fn and(&mut self, value: u8) -> u8 {
+    fn and(&mut self, value: u8) {
         let res = self.a & value;
 
         self.p.zero = res == 0;
         self.p.negative = (res as i8) < 0;
 
-        res
+        self.a = res;
     }
 
     fn asl(&mut self, value: u8) -> u8 {
@@ -938,72 +938,148 @@ impl Cpu {
         self.p.negative = (self.x as i8) < 0;
     }
 
-    fn eor(&mut self, value: u8) -> u8 {
-        todo!()
+    fn eor(&mut self, value: u8) {
+        let res = self.a ^ value;
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        self.a = res;
     }
 
     fn inc(&mut self, value: u8) -> u8 {
-        todo!()
+        let res = value.wrapping_add(1);
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        res
     }
 
     fn inx(&mut self) {
-        todo!()
+        let res = self.x.wrapping_add(1);
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        self.x = res;
     }
 
     fn iny(&mut self) {
-        todo!()
+        let res = self.y.wrapping_add(1);
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        self.y = res;
     }
 
-    fn lda(&mut self, value: u8) -> u8 {
-        todo!()
+    fn lda(&mut self, value: u8) {
+        self.a = value;
+
+        self.p.zero = value == 0;
+        self.p.negative = (value as i8) < 0;
     }
 
-    fn ldx(&mut self, value: u8) -> u8 {
-        todo!()
+    fn ldx(&mut self, value: u8) {
+        self.x = value;
+
+        self.p.zero = value == 0;
+        self.p.negative = (value as i8) < 0;
     }
 
-    fn ldy(&mut self, value: u8) -> u8 {
-        todo!()
+    fn ldy(&mut self, value: u8) {
+        self.y = value;
+
+        self.p.zero = value == 0;
+        self.p.negative = (value as i8) < 0;
     }
 
     fn lsr(&mut self, value: u8) -> u8 {
-        todo!()
+        let res = value >> 1;
+
+        self.p.carry = bit_to_bool(value & 0x01);
+        self.p.zero = res == 0;
+        self.p.negative = false;
+
+        res
     }
 
-    fn ora(&mut self, value: u8) -> u8 {
-        todo!()
+    fn ora(&mut self, value: u8) {
+        let res = self.a | value;
+
+        self.p.zero = res == 0;
+        self.p.negative = (res as i8) < 0;
+
+        self.a = res;
     }
 
     fn rol(&mut self, value: u8) -> u8 {
-        todo!()
+        let res = value << 1 | bool_to_bit(self.p.carry);
+
+        self.p.carry = bit_to_bool((value >> 7) & 0x01);
+        self.p.zero = res == 0;
+        self.p.negative = bit_to_bool((res >> 7) & 0x01);
+
+        res
     }
 
     fn ror(&mut self, value: u8) -> u8 {
-        todo!()
+        let res = value >> 1 | bool_to_bit(self.p.carry) << 7;
+
+        self.p.carry = bit_to_bool(value & 0x01);
+        self.p.zero = res == 0;
+        self.p.negative = bit_to_bool((res >> 7) & 0x01);
+
+        res
     }
 
     fn tax(&mut self) {
-        todo!()
+        self.x = self.a;
+
+        self.p.zero = self.x == 0;
+        self.p.negative = (self.x as i8) < 0;
     }
 
     fn tay(&mut self) {
-        todo!()
+        self.y = self.a;
+
+        self.p.zero = self.y == 0;
+        self.p.negative = (self.y as i8) < 0;
     }
 
     fn tsx(&mut self) {
-        todo!()
+        self.x = self.s;
+
+        self.p.zero = self.x == 0;
+        self.p.negative = (self.x as i8) < 0;
     }
 
     fn txa(&mut self) {
-        todo!()
+        self.a = self.x;
+
+        self.p.zero = self.a == 0;
+        self.p.negative = (self.a as i8) < 0;
     }
 
     fn txs(&mut self) {
-        todo!()
+        self.s = self.x;
+
+        self.p.zero = self.s == 0;
+        self.p.negative = (self.s as i8) < 0;
     }
 
     fn tya(&mut self) {
-        todo!()
+        self.a = self.y;
+
+        self.p.zero = self.a == 0;
+        self.p.negative = (self.a as i8) < 0;
     }
 }
 
