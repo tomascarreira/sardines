@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::bus::Bus;
 
 #[derive(Debug)]
@@ -9,6 +11,7 @@ pub struct Cpu {
     p: StatusFlag,
     pc: u16,
     instr_state: InstrState,
+    cycle: usize,
 }
 
 impl Cpu {
@@ -29,6 +32,7 @@ impl Cpu {
                 saved_addr: 0,
                 page_crossed: false,
             },
+            cycle: 1,
         }
     }
 
@@ -38,14 +42,11 @@ impl Cpu {
             let opcode = self.fetch_opcode(bus);
 
             let (instr, addr_mode) = decode(opcode);
-            println!(
-                "DEBUG: decoded {:x?} -> instr: {:?}, addr_mode: {:?}",
-                opcode, instr, addr_mode
-            );
             self.instr_state.instr = instr;
             self.instr_state.addr_mode = addr_mode;
             self.instr_state.cycle = 2;
 
+            self.cycle += 1;
             return;
         }
 
@@ -143,8 +144,12 @@ impl Cpu {
             }
             (instr @ (Instr::Pla | Instr::Plp), AddrMode::Implied, 4) => {
                 match instr {
-                    Instr::Pha => self.a = self.stack_pop(bus),
-                    Instr::Php => self.p = StatusFlag::from(self.stack_pop(bus)),
+                    Instr::Pla => {
+                        self.a = self.stack_pop(bus);
+                        self.p.zero = self.a == 0;
+                        self.p.negative = (self.a as i8) < 0;
+                    }
+                    Instr::Plp => self.p = StatusFlag::from(self.stack_pop(bus)),
                     _ => unreachable!(),
                 }
                 self.instr_state.fetch_opcode = true;
@@ -296,8 +301,7 @@ impl Cpu {
                 AddrMode::Zeropage,
                 3,
             ) => {
-                let addr =
-                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
+                let addr = self.instr_state.saved_byte as u16;
                 self.do_opcode_read(self.read(addr, bus), instr);
                 self.instr_state.fetch_opcode = true;
             }
@@ -342,8 +346,7 @@ impl Cpu {
             }
 
             (instr @ (Instr::Sta | Instr::Stx | Instr::Sty), AddrMode::Zeropage, 3) => {
-                let addr =
-                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
+                let addr = self.instr_state.saved_byte as u16;
                 let val = self.do_opcode_write(instr);
                 self.write(val, addr, bus);
                 self.instr_state.fetch_opcode = true;
@@ -354,9 +357,9 @@ impl Cpu {
                 self.pc += 1;
             }
             (_, AddrMode::ZeropageX, 3) => {
-                let addr =
-                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
-                self.instr_state.saved_addr = self.read(addr, bus).wrapping_add(self.x) as u16
+                self.read(self.instr_state.saved_byte as u16, bus);
+                self.instr_state.saved_addr =
+                    self.instr_state.saved_byte.wrapping_add(self.x) as u16
             }
 
             (
@@ -421,9 +424,9 @@ impl Cpu {
             }
 
             (_, AddrMode::ZeropageY, 3) => {
-                let addr =
-                    self.instr_state.saved_byte as u16 | (self.instr_state.saved_byte as u16) << 8;
-                self.instr_state.saved_addr = self.read(addr, bus).wrapping_add(self.y) as u16
+                self.read(self.instr_state.saved_byte as u16, bus);
+                self.instr_state.saved_addr =
+                    self.instr_state.saved_byte.wrapping_add(self.y) as u16
             }
 
             (instr @ Instr::Ldx, AddrMode::ZeropageY, 4) => {
@@ -472,7 +475,7 @@ impl Cpu {
             ) => {
                 let val = self.read(self.instr_state.saved_addr, bus);
                 if self.instr_state.page_crossed {
-                    self.instr_state.saved_addr += 0x0100;
+                    self.instr_state.saved_addr = self.instr_state.saved_addr.wrapping_add(0x0100);
                 } else {
                     self.do_opcode_read(val, instr);
                     self.instr_state.fetch_opcode = true;
@@ -481,6 +484,7 @@ impl Cpu {
 
             (
                 instr @ (Instr::Lda
+                | Instr::Ldx
                 | Instr::Ldy
                 | Instr::Eor
                 | Instr::And
@@ -503,7 +507,7 @@ impl Cpu {
             ) => {
                 let _ = self.read(self.instr_state.saved_addr, bus);
                 if self.instr_state.page_crossed {
-                    self.instr_state.saved_addr += 0x100;
+                    self.instr_state.saved_addr = self.instr_state.saved_addr.wrapping_add(0x0100);
                 }
             }
             (
@@ -547,7 +551,7 @@ impl Cpu {
             (Instr::Sta, AddrMode::AbsoluteX | AddrMode::AbsoluteY, 4) => {
                 self.instr_state.saved_byte = self.read(self.instr_state.saved_addr, bus);
                 if self.instr_state.page_crossed {
-                    self.instr_state.saved_addr += 0x0100;
+                    self.instr_state.saved_addr = self.instr_state.saved_addr.wrapping_add(0x0100);
                 }
             }
 
@@ -572,7 +576,7 @@ impl Cpu {
                     let (instr, addr_mode) = decode(next_opcode);
                     self.instr_state.instr = instr;
                     self.instr_state.addr_mode = addr_mode;
-                    self.instr_state.cycle = 2;
+                    self.instr_state.cycle = 1;
                     self.pc += 1
                 }
             }
@@ -584,7 +588,7 @@ impl Cpu {
                     let (instr, addr_mode) = decode(next_opcode);
                     self.instr_state.instr = instr;
                     self.instr_state.addr_mode = addr_mode;
-                    self.instr_state.cycle = 2;
+                    self.instr_state.cycle = 1;
                     self.pc += 1
                 }
             }
@@ -593,7 +597,7 @@ impl Cpu {
                 let (instr, addr_mode) = decode(next_opcode);
                 self.instr_state.instr = instr;
                 self.instr_state.addr_mode = addr_mode;
-                self.instr_state.cycle = 2;
+                self.instr_state.cycle = 1;
                 self.pc += 1
             }
 
@@ -602,9 +606,8 @@ impl Cpu {
                 self.pc += 1;
             }
             (_, AddrMode::IndirectX, 3) => {
-                self.instr_state.saved_byte = self
-                    .read(self.instr_state.saved_byte as u16, bus)
-                    .wrapping_add(self.x);
+                self.read(self.instr_state.saved_byte as u16, bus);
+                self.instr_state.saved_byte = self.instr_state.saved_byte.wrapping_add(self.x);
             }
             (_, AddrMode::IndirectX, 4) => {
                 self.instr_state.saved_addr =
@@ -612,7 +615,8 @@ impl Cpu {
             }
             (_, AddrMode::IndirectX, 5) => {
                 self.instr_state.saved_addr |=
-                    (self.read(self.instr_state.saved_byte as u16, bus) as u16) << 8;
+                    (self.read(self.instr_state.saved_byte.wrapping_add(1) as u16, bus) as u16)
+                        << 8;
             }
 
             (
@@ -648,7 +652,7 @@ impl Cpu {
             (_, AddrMode::IndirectY, 4) => {
                 let addr_high = self.read(self.instr_state.saved_byte.wrapping_add(1) as u16, bus);
                 let (addr_low, page_crossed) =
-                    (self.instr_state.saved_byte as u8).overflowing_add(self.y);
+                    (self.instr_state.saved_addr as u8).overflowing_add(self.y);
                 self.instr_state.saved_addr = addr_low as u16 | (addr_high as u16) << 8;
                 self.instr_state.page_crossed = page_crossed;
             }
@@ -666,7 +670,7 @@ impl Cpu {
             ) => {
                 let val = self.read(self.instr_state.saved_addr, bus);
                 if self.instr_state.page_crossed {
-                    self.instr_state.saved_addr += 0x0100;
+                    self.instr_state.saved_addr = self.instr_state.saved_addr.wrapping_add(0x0100);
                 } else {
                     self.do_opcode_read(val, instr);
                     self.instr_state.fetch_opcode = true;
@@ -691,7 +695,7 @@ impl Cpu {
             (Instr::Sta, AddrMode::IndirectY, 5) => {
                 self.read(self.instr_state.saved_addr, bus);
                 if self.instr_state.page_crossed {
-                    self.instr_state.saved_addr += 0x0100;
+                    self.instr_state.saved_addr = self.instr_state.saved_addr.wrapping_add(0x0100);
                 }
             }
             (instr @ Instr::Sta, AddrMode::IndirectY, 6) => {
@@ -717,12 +721,19 @@ impl Cpu {
                 let pc_high =
                     self.read(self.instr_state.saved_addr & 0xff00 | addr_low as u16, bus);
                 self.pc = self.instr_state.saved_byte as u16 | (pc_high as u16) << 8;
+                self.instr_state.fetch_opcode = true;
             }
 
-            _ => todo!(),
+            _ => {
+                unreachable!(
+                    "{:?} {:?} {}",
+                    self.instr_state.instr, self.instr_state.addr_mode, self.instr_state.cycle
+                );
+            }
         }
 
         self.instr_state.cycle += 1;
+        self.cycle += 1;
     }
 
     fn fetch_opcode(&mut self, bus: &Bus) -> u8 {
@@ -784,8 +795,7 @@ impl Cpu {
             Instr::Rol => self.a = self.rol(self.a),
             Instr::Ror => self.a = self.ror(self.a),
             _ => {
-                println!("{:?}", instr);
-                unreachable!()
+                unreachable!("{:?}", instr)
             }
         }
     }
@@ -862,10 +872,10 @@ impl Cpu {
 
     fn adc(&mut self, value: u8) {
         // TODO: change to carrying_add when its out of nightly or if I decide to use nightly
-        let res: u16 = self.a as u16 + value as u16 + self.p.carry as u16;
+        let res: u16 = self.a as u16 + value as u16 + bool_to_bit(self.p.carry) as u16;
 
         self.p.carry = res > 0xff;
-        self.p.zero = res == 0;
+        self.p.zero = res as u8 == 0;
         self.p.overflow = (((res as u8 ^ self.a) & (res as u8 ^ value)) >> 7) != 0;
         self.p.negative = (res as i8) < 0;
 
@@ -940,10 +950,10 @@ impl Cpu {
     }
 
     fn dey(&mut self) {
-        self.x = self.x.wrapping_sub(1);
+        self.y = self.y.wrapping_sub(1);
 
-        self.p.zero = self.x == 0;
-        self.p.negative = (self.x as i8) < 0;
+        self.p.zero = self.y == 0;
+        self.p.negative = (self.y as i8) < 0;
     }
 
     fn eor(&mut self, value: u8) {
@@ -1078,9 +1088,6 @@ impl Cpu {
 
     fn txs(&mut self) {
         self.s = self.x;
-
-        self.p.zero = self.s == 0;
-        self.p.negative = (self.s as i8) < 0;
     }
 
     fn tya(&mut self) {
@@ -1088,6 +1095,25 @@ impl Cpu {
 
         self.p.zero = self.a == 0;
         self.p.negative = (self.a as i8) < 0;
+    }
+}
+
+impl Display for Cpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:04x} | {:?} {:?} {} | a:{:02x} x:{:02x} y:{:02x} s:{:02x} p:{:02x} | cyc:{}",
+            self.pc,
+            self.instr_state.instr,
+            self.instr_state.addr_mode,
+            self.instr_state.cycle,
+            self.a,
+            self.x,
+            self.y,
+            self.s,
+            self.p.b_flag_unset(),
+            self.cycle
+        )
     }
 }
 
@@ -1136,6 +1162,19 @@ impl StatusFlag {
             | (bool_to_bit(self.decimal) << 3)
             // b flag set
             | (1 << 4)
+            // always set
+            | (1 << 5)
+            | (bool_to_bit(self.overflow) << 6)
+            | (bool_to_bit(self.negative) << 7)
+    }
+
+    fn b_flag_unset(&self) -> u8 {
+        bool_to_bit(self.carry)
+            | (bool_to_bit(self.zero) << 1)
+            | (bool_to_bit(self.interrupt_disable) << 2)
+            | (bool_to_bit(self.decimal) << 3)
+            // b flag unset
+            | (0 << 4)
             // always set
             | (1 << 5)
             | (bool_to_bit(self.overflow) << 6)
@@ -1378,7 +1417,7 @@ fn decode(opcode: u8) -> (Instr, AddrMode) {
         (0b00, 0b100, 0b011) => (Instr::Sty, AddrMode::Absolute),
         (0b00, 0b100, 0b101) => (Instr::Sty, AddrMode::ZeropageX),
 
-        (0b00, 0b101, 0b000) => (Instr::Ldy, AddrMode::Absolute),
+        (0b00, 0b101, 0b000) => (Instr::Ldy, AddrMode::Immediate),
         (0b00, 0b101, 0b001) => (Instr::Ldy, AddrMode::Zeropage),
         (0b00, 0b101, 0b011) => (Instr::Ldy, AddrMode::Absolute),
         (0b00, 0b101, 0b101) => (Instr::Ldy, AddrMode::ZeropageX),

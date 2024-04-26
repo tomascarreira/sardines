@@ -19,14 +19,19 @@ impl Nes {
     }
 
     pub fn run(&mut self) {
-        for _ in 0..10 {
-            println!("{:#x?}", self.cpu);
+        loop {
+            println!("{}", self.cpu);
+            println!(
+                "Output of test: {:x} {:x} {:x} {:x}",
+                self.bus.read(0x6000),
+                self.bus.read(0x6001),
+                self.bus.read(0x6002),
+                self.bus.read(0x6003)
+            );
             // println!(
-            //     "Output of test: {:x} {:x} {:x} {:x}",
-            //     self.bus.read(0x6000),
-            //     self.bus.read(0x6001),
-            //     self.bus.read(0x6002),
-            //     self.bus.read(0x6003)
+            //     "Output of test: {:x} {:x}",
+            //     self.bus.read(0x0002),
+            //     self.bus.read(0x6003),
             // );
             self.cpu.cycle(&mut self.bus);
         }

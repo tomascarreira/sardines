@@ -26,7 +26,8 @@ impl NROM {
 impl Mapper for NROM {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x0000..=0x5fff => unreachable!(),
+            0x0000..=0x401f => unreachable!(),
+            0x4020..=0x5fff => todo!(),
             0x6000..=0x7fff => self.prgram[(address - 0x6000) as usize],
             0x8000..=0xbfff => self.prgrom[(address - 0x8000) as usize],
             0xc000..=0xffff => {
@@ -41,7 +42,8 @@ impl Mapper for NROM {
 
     fn write(&mut self, value: u8, address: u16) {
         match address {
-            0x0000..=0x5fff => unreachable!(),
+            0x0000..=0x401f => unreachable!(),
+            0x4020..=0x5fff => todo!(),
             0x6000..=0x7fff => self.prgram[(address - 0x6000) as usize] = value,
             0x8000..=0xffff => println!("INFO: writing on read-only prg rom"),
         }

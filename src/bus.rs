@@ -29,7 +29,7 @@ impl Bus {
         match address {
             // Can the compiler see that it does not need array bound checking
             0x0000..=0x1fff => self.ram[(address % RAM_SIZE as u16) as usize],
-            0x2000..=0x3fff => todo!(),
+            0x2000..=0x3fff => 0,
             0x4000..=0x4017 => 0,
             0x4018..=0x401f => todo!(),
             0x4020..=0xffff => self.cart.read(address),
@@ -40,7 +40,7 @@ impl Bus {
         match address {
             // Can the compiler see that it does not need array bound checking
             0x0000..=0x1fff => self.ram[(address % RAM_SIZE as u16) as usize] = value,
-            0x2000..=0x3fff => todo!(),
+            0x2000..=0x3fff => (),
             0x4000..=0x4017 => (),
             0x4018..=0x401f => todo!(),
             0x4020..=0xffff => self.cart.write(value, address),

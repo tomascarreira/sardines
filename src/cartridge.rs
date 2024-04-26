@@ -16,7 +16,7 @@ impl Cartridge {
 
         let mapper = match ines.mapper {
             0 => NROM::new(&rom, ines.prgrom_size, ines.chrrom_size),
-            _ => unimplemented!(),
+            _ => unimplemented!("Unsupported mapper: {}", ines.mapper),
         };
 
         Cartridge {
