@@ -1,5 +1,6 @@
 use crate::bus::Bus;
 
+#[derive(Debug)]
 pub struct Cpu {
     a: u8,
     x: u8,
@@ -37,6 +38,10 @@ impl Cpu {
             let opcode = self.fetch_opcode(bus);
 
             let (instr, addr_mode) = decode(opcode);
+            println!(
+                "DEBUG: decoded {:x?} -> instr: {:?}, addr_mode: {:?}",
+                opcode, instr, addr_mode
+            );
             self.instr_state.instr = instr;
             self.instr_state.addr_mode = addr_mode;
             self.instr_state.cycle = 2;
@@ -778,7 +783,10 @@ impl Cpu {
             Instr::Lsr => self.a = self.lsr(self.a),
             Instr::Rol => self.a = self.rol(self.a),
             Instr::Ror => self.a = self.ror(self.a),
-            _ => unreachable!(),
+            _ => {
+                println!("{:?}", instr);
+                unreachable!()
+            }
         }
     }
 
@@ -1083,6 +1091,7 @@ impl Cpu {
     }
 }
 
+#[derive(Debug)]
 struct StatusFlag {
     carry: bool,
     zero: bool,
@@ -1147,6 +1156,7 @@ impl From<u8> for StatusFlag {
     }
 }
 
+#[derive(Debug)]
 struct InstrState {
     instr: Instr,
     addr_mode: AddrMode,
@@ -1157,7 +1167,7 @@ struct InstrState {
     page_crossed: bool,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Instr {
     Illegal,
     Adc,
@@ -1218,7 +1228,7 @@ enum Instr {
     Tya,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum AddrMode {
     Accumulator,
     Absolute,
