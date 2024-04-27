@@ -568,10 +568,11 @@ impl Cpu {
             (instr, AddrMode::Relative, 3) => {
                 let next_opcode = self.read(self.pc, bus);
                 if self.do_opcode_relative(instr) {
-                    let (pcl, page_crossed) =
-                        (self.pc as u8).overflowing_add(self.instr_state.saved_byte as i8 as u8);
-                    self.pc = (self.pc & 0xff00) | pcl as u16;
-                    self.instr_state.page_crossed = page_crossed;
+                    let pcl = (self.pc as u8 as i16) + self.instr_state.saved_byte as i8 as i16;
+                    if pcl > 0xff {
+                        self.instr_state.page_crossed;
+                    }
+                    self.pc = (self.pc & 0xff00) | pcl as u8 as u16;
                 } else {
                     let (instr, addr_mode) = decode(next_opcode);
                     self.instr_state.instr = instr;
@@ -583,7 +584,12 @@ impl Cpu {
             (_, AddrMode::Relative, 4) => {
                 let next_opcode = self.read(self.pc, bus);
                 if self.instr_state.page_crossed {
-                    self.pc += 0x0100;
+                    self.pc = if self.instr_state.saved_byte as i8 > 0 {
+                        self.pc + 0x0100
+                    } else {
+                        self.pc - 0x0100
+                    };
+                    self.instr_state.fetch_opcode = true;
                 } else {
                     let (instr, addr_mode) = decode(next_opcode);
                     self.instr_state.instr = instr;
@@ -592,15 +598,16 @@ impl Cpu {
                     self.pc += 1
                 }
             }
-            (_, AddrMode::Relative, 5) => {
-                let next_opcode = self.read(self.pc, bus);
-                let (instr, addr_mode) = decode(next_opcode);
-                self.instr_state.instr = instr;
-                self.instr_state.addr_mode = addr_mode;
-                self.instr_state.cycle = 1;
-                self.pc += 1
-            }
-
+            // (_, AddrMode::Relative, 5) => {
+            //     let next_opcode = self.read(self.pc, bus);
+            //     println!("next_opcode {:x}", next_opcode);
+            //     let (instr, addr_mode) = decode(next_opcode);
+            //     self.instr_state.instr = instr;
+            //     self.instr_state.addr_mode = addr_mode;
+            //     self.instr_state.cycle = 1;
+            //     self.pc += 1
+            // }
+            //
             (_, AddrMode::IndirectX, 2) => {
                 self.instr_state.saved_byte = self.read(self.pc, bus);
                 self.pc += 1;
