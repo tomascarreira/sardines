@@ -46,6 +46,10 @@ impl Bus {
             0x4020..=0xffff => self.cart.write(value, address),
         }
     }
+
+    pub fn get_reset_vector(&self) -> u16 {
+        self.read(0xfffc) as u16 | (self.read(0xfffd) as u16) << 8
+    }
 }
 
 struct PpuRegisters {}
