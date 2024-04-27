@@ -15,24 +15,24 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    pub fn new() -> Self {
+    pub fn new(reset_vector: u16) -> Self {
         Cpu {
             a: 0,
             x: 0,
             y: 0,
-            s: 0,
+            s: 0xfd,
             p: StatusFlag::power_on(),
-            pc: 1,
+            pc: reset_vector,
             instr_state: InstrState {
-                instr: Instr::Brk,
-                addr_mode: AddrMode::Implied,
-                cycle: 2,
-                fetch_opcode: false,
+                instr: Instr::Illegal,
+                addr_mode: AddrMode::Illegal,
+                cycle: 1,
+                fetch_opcode: true,
                 saved_byte: 0,
                 saved_addr: 0,
                 page_crossed: false,
             },
-            cycle: 1,
+            cycle: 7,
         }
     }
 
