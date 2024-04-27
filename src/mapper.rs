@@ -19,7 +19,9 @@ pub mod nrom {
             assert_eq!(rom.len(), 16 + prgrom_size * 0x4000 + chrrom_size * 0x2000);
             NROM {
                 prgrom: rom[16..16 + 0x4000 * prgrom_size].to_vec(),
-                chrrom: rom[16 + 0x4000 * prgrom_size..16 + 0x4000 + 0x2000 * chrrom_size].to_vec(),
+                chrrom: rom
+                    [16 + 0x4000 * prgrom_size..16 + 0x4000 * prgrom_size + 0x2000 * chrrom_size]
+                    .to_vec(),
                 prgram: vec![0; 0x2000],
             }
         }
@@ -103,7 +105,7 @@ pub mod mmc1 {
             }
         }
 
-        fn calc_prgrom_addr(&self, mut address: u16) -> usize {
+        fn calc_prgrom_addr(&self, address: u16) -> usize {
             if self.prgrom.len() == 0x80000 {
                 unimplemented!();
             }
@@ -111,22 +113,20 @@ pub mod mmc1 {
             let bank_mode = self.control.prg_rom_bank_mode;
             let bank_select = self.prg_bank.select;
 
-            address -= 0x8000;
-            match (bank_mode, address) {
-                (PRGROMBankMode::Switch32K, _) => {
-                    address as usize + (bank_select & 0b1110) * 0x8000
-                }
-                (PRGROMBankMode::FixFirstSwitchLast16K, 0x0000..=0x3fff) => address as usize,
+            let addr = address - 0x8000;
+            match (bank_mode, addr) {
+                (PRGROMBankMode::Switch32K, _) => addr as usize + (bank_select & 0b1110) * 0x8000,
+                (PRGROMBankMode::FixFirstSwitchLast16K, 0x0000..=0x3fff) => addr as usize,
                 (PRGROMBankMode::FixFirstSwitchLast16K, 0x4000..=0x7fff) => {
-                    address as usize + bank_select * 0x4000 - 0x4000
+                    addr as usize + bank_select * 0x4000 - 0x4000
                 }
                 (PRGROMBankMode::FixLastSwichFirst16K, 0x0000..=0x3fff) => {
-                    address as usize + bank_select * 0x4000
+                    addr as usize + bank_select * 0x4000
                 }
                 (PRGROMBankMode::FixLastSwichFirst16K, 0x4000..=0x7fff) => {
-                    address as usize + self.prgrom.len() - 0x4000
+                    addr as usize + self.prgrom.len() - 0x4000
                 }
-                _ => unreachable!("{:x}", address),
+                _ => unreachable!("{:x}", addr),
             }
         }
     }
