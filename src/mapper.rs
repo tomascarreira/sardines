@@ -6,18 +6,18 @@ pub trait Mapper {
 pub mod nrom {
     use crate::mapper::Mapper;
 
-    pub struct NROM {
+    pub struct Nrom {
         prgrom: Vec<u8>,
         chrrom: Vec<u8>,
         prgram: Vec<u8>,
     }
 
-    impl NROM {
+    impl Nrom {
         pub fn new(rom: &[u8], prgrom_size: usize, chrrom_size: usize) -> Self {
             assert!(prgrom_size == 1 || prgrom_size == 2);
             assert_eq!(chrrom_size, 1);
             assert_eq!(rom.len(), 16 + prgrom_size * 0x4000 + chrrom_size * 0x2000);
-            NROM {
+            Nrom {
                 prgrom: rom[16..16 + 0x4000 * prgrom_size].to_vec(),
                 chrrom: rom
                     [16 + 0x4000 * prgrom_size..16 + 0x4000 * prgrom_size + 0x2000 * chrrom_size]
@@ -27,7 +27,7 @@ pub mod nrom {
         }
     }
 
-    impl Mapper for NROM {
+    impl Mapper for Nrom {
         fn read(&self, address: u16) -> u8 {
             match address {
                 0x0000..=0x401f => unreachable!(),

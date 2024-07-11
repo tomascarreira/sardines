@@ -2,7 +2,7 @@ use std::fs;
 
 use crate::{
     ines::INes,
-    mapper::{mmc1::MMC1, nrom::NROM, Mapper},
+    mapper::{mmc1::MMC1, nrom::Nrom, Mapper},
 };
 
 pub struct Cartridge {
@@ -15,7 +15,7 @@ impl Cartridge {
         let ines = INes::new(&rom[0..16]);
 
         let mapper: Box<dyn Mapper> = match ines.mapper {
-            0 => Box::new(NROM::new(&rom, ines.prgrom_size, ines.chrrom_size)),
+            0 => Box::new(Nrom::new(&rom, ines.prgrom_size, ines.chrrom_size)),
             1 => Box::new(MMC1::new(&rom, ines.prgrom_size, ines.chrrom_size)),
             _ => unimplemented!("Unsupported mapper: {}", ines.mapper),
         };
