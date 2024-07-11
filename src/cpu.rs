@@ -1134,7 +1134,7 @@ struct StatusFlag {
     negative: bool,
 }
 
-fn bool_to_bit(bool: bool) -> u8 {
+pub(crate) fn bool_to_bit(bool: bool) -> u8 {
     if bool {
         1
     } else {

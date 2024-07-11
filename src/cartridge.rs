@@ -30,4 +30,12 @@ impl Cartridge {
     pub fn write(&mut self, value: u8, address: u16) {
         self.mapper.write(value, address);
     }
+
+    pub fn chr_read(&self, addr: u16) -> u8 {
+        self.mapper.chr_read(addr)
+    }
+
+    pub fn chr_write(&mut self, value: u8, addr: u16) {
+        self.mapper.chr_write(value, addr)
+    }
 }

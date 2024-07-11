@@ -6,17 +6,15 @@ use crate::ppu::Ppu;
 pub struct Nes {
     bus: Bus,
     cpu: Cpu,
-    ppu: Ppu,
 }
 
 impl Nes {
     pub fn new(cart: Cartridge) -> Self {
-        let bus = Bus::new(cart);
+        let bus = Bus::new(cart, Ppu::new());
         let reset_vector = bus.get_reset_vector();
         Nes {
             bus,
             cpu: Cpu::new(reset_vector),
-            ppu: Ppu {},
         }
     }
 

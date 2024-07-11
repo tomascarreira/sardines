@@ -2,6 +2,10 @@ pub trait Mapper {
     fn read(&self, address: u16) -> u8;
 
     fn write(&mut self, value: u8, address: u16);
+
+    fn chr_read(&self, addr: u16) -> u8;
+
+    fn chr_write(&mut self, value: u8, addr: u16);
 }
 pub mod nrom {
     use crate::mapper::Mapper;
@@ -51,6 +55,14 @@ pub mod nrom {
                 0x6000..=0x7fff => self.prgram[(address - 0x6000) as usize] = value,
                 0x8000..=0xffff => println!("INFO: writing on read-only prg rom"),
             }
+        }
+
+        fn chr_read(&self, addr: u16) -> u8 {
+            self.chrrom[addr as usize]
+        }
+
+        fn chr_write(&mut self, value: u8, addr: u16) {
+            self.chrrom[addr as usize] = value
         }
     }
 }
@@ -156,6 +168,14 @@ pub mod mmc1 {
 
             let addr = self.calc_prgrom_addr(address);
             self.prgrom[addr] = value;
+        }
+
+        fn chr_read(&self, addr: u16) -> u8 {
+            todo!()
+        }
+
+        fn chr_write(&mut self, value: u8, addr: u16) {
+            todo!()
         }
     }
 
