@@ -5,7 +5,7 @@ const RAM_SIZE: usize = 0x800;
 
 pub struct Bus {
     open_bus: u8,
-    ram: [u8; RAM_SIZE],
+    ram: Vec<u8>,
     cart: Cartridge,
     ppu_registers: PpuRegisters,
     apu_registers: ApuRegisters,
@@ -16,8 +16,7 @@ impl Bus {
     pub fn new(cart: Cartridge) -> Self {
         Bus {
             open_bus: 0x00,
-            // Is it ok to have this must memory on the stack?
-            ram: [0x00; RAM_SIZE],
+            ram: vec![0; RAM_SIZE],
             cart,
             ppu_registers: PpuRegisters {},
             apu_registers: ApuRegisters {},
