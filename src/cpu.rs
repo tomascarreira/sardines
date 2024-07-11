@@ -570,7 +570,7 @@ impl Cpu {
                 if self.do_opcode_relative(instr) {
                     let pcl = (self.pc as u8 as i16) + self.instr_state.saved_byte as i8 as i16;
                     if pcl > 0xff {
-                        self.instr_state.page_crossed;
+                        self.instr_state.page_crossed = true;
                     }
                     self.pc = (self.pc & 0xff00) | pcl as u8 as u16;
                 } else {
