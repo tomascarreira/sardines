@@ -160,6 +160,13 @@ impl Ppu {
     }
 }
 
+fn pattern_table_address_decoder(pt_half: u8, tile_number: u8, bit_plane: u8, fine_y: u8) -> u16 {
+    (fine_y as u16 & 0b0000_0000_0000_0111)
+        | (((bit_plane as u16) << 3) & 0b0000_0000_0000_1000)
+        | ((tile_number as u16) << 4)
+        | (((pt_half as u16) << 12) & 0b0001_0000_0000_000)
+}
+
 struct Registers {
     ppu_ctrl: PpuCtrl,
     ppu_mask: PpuMask,
@@ -287,5 +294,16 @@ impl From<&PpuStatus> for u8 {
         bool_to_bit(ppu_ctrl.sprite_overflow) << 5
             | bool_to_bit(ppu_ctrl.sprite_0_hit) << 6
             | bool_to_bit(ppu_ctrl.vertical_blank.get()) << 7
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pattern_table_address_decoder() {
+        assert_eq!(pattern_table_address_decoder(0, 0x69, 0, 1), 0x691);
+        assert_eq!(pattern_table_address_decoder(0, 0x69, 1, 1), 0x699);
     }
 }
