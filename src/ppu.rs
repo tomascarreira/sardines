@@ -2,6 +2,7 @@ use std::cell::Cell;
 
 use crate::{
     bus::Bus,
+    cartridge::Cartridge,
     cpu::{bit_to_bool, bool_to_bit},
 };
 
@@ -35,10 +36,10 @@ impl Ppu {
         }
     }
 
-    pub fn cycle(&mut self, bus: &mut Bus) {}
+    pub fn cycle(&mut self, cart: &mut Cartridge) {}
 
     // TODO: change this register type to something more expressive, maybe an enum
-    pub fn register_read(&self, register: u8) -> u8 {
+    pub fn register_read(&self, register: u8, cart: &Cartridge) -> u8 {
         match register {
             0 => self.internal_bus_latch.get(),
             1 => self.internal_bus_latch.get(),
@@ -62,7 +63,7 @@ impl Ppu {
             7 => {
                 let res = self.read_buffer.get();
                 self.internal_bus_latch.set(res);
-                self.read_buffer.set(self.vram[self.v as usize]);
+                self.read_buffer.set(self.read(self.v, cart));
                 // TODO: Implement different behavoir during rendering
                 // TODO: Use Cell::update() when it is merged from nightly
                 let mut ppu_addr = self.registers.ppu_addr.get();
@@ -82,7 +83,7 @@ impl Ppu {
         }
     }
 
-    pub fn register_write(&mut self, value: u8, register: u8) {
+    pub fn register_write(&mut self, value: u8, register: u8, cart: &mut Cartridge) {
         match register {
             0 => {
                 self.registers.ppu_ctrl = PpuCtrl::from(value);
@@ -120,7 +121,7 @@ impl Ppu {
                 }
             }
             7 => {
-                self.vram[self.v as usize] = value;
+                self.write(value, self.v, cart);
                 // TODO: Implement different behavoir during rendering
                 // TODO: Use Cell::update() when it is merged from nightly
                 let mut ppu_addr = self.registers.ppu_addr.get();
@@ -140,18 +141,18 @@ impl Ppu {
         self.internal_bus_latch.set(value);
     }
 
-    fn read(&self, addr: u16, bus: &Bus) -> u8 {
+    fn read(&self, addr: u16, cart: &Cartridge) -> u8 {
         match addr {
-            0x0000..=0x1fff => bus.chr_read(addr),
+            0x0000..=0x1fff => cart.chr_read(addr),
             0x2000..=0x3eff => self.vram[((addr - 0x2000) % 0x1000) as usize],
             0x3f00..=0x3fff => self.palette[(addr - 0x3f00) as usize],
             _ => unreachable!(),
         }
     }
 
-    fn write(&mut self, value: u8, addr: u16, bus: &mut Bus) {
+    fn write(&mut self, value: u8, addr: u16, cart: &mut Cartridge) {
         match addr {
-            0x0000..=0x1fff => bus.chr_write(value, addr),
+            0x0000..=0x1fff => cart.chr_write(value, addr),
             0x2000..=0x3eff => self.vram[((addr - 0x2000) % 0x1000) as usize] = value,
             0x3f00..=0x3fff => self.palette[(addr - 0x3f00) as usize] = value,
             _ => unreachable!(),
