@@ -3,10 +3,15 @@ use std::cell::Cell;
 use crate::{
     bus::Bus,
     cartridge::Cartridge,
-    cpu::{bit_to_bool, bool_to_bit},
+    cpu::{bit_to_bool, bool_to_bit, Cpu},
 };
 
 pub struct Ppu {
+    cycle: usize,
+    dot: u16,
+    scanline: u16,
+    frame: usize,
+
     registers: Registers,
     vram: Vec<u8>,
     oam: Vec<u8>,
@@ -18,11 +23,23 @@ pub struct Ppu {
     t: u16,
     x: u8,
     w: Cell<bool>,
+
+    tile_index: u8,
+    attribute: u8,
+    ls_bg_tile: u8,
+    ms_bg_tile: u8,
+    ls_shift_register: u16,
+    ms_shift_register: u16,
+    attribute_shift_register: u8,
 }
 
 impl Ppu {
     pub fn new() -> Self {
         Ppu {
+            cycle: 0,
+            dot: 0,
+            scanline: 0,
+            frame: 0,
             registers: Registers::new(),
             vram: vec![0; 0x1000],
             oam: vec![0; 64 * 4],
@@ -33,10 +50,112 @@ impl Ppu {
             t: 0,
             x: 0,
             w: Cell::new(false),
+            tile_index: 0,
+            attribute: 0,
+            ls_bg_tile: 0,
+            ms_bg_tile: 0,
+            ls_shift_register: 0,
+            ms_shift_register: 0,
+            attribute_shift_register: 0,
         }
     }
 
-    pub fn cycle(&mut self, cart: &mut Cartridge) {}
+    pub fn cycle(&mut self, cart: &mut Cartridge, cpu: &mut Cpu) {
+        if self.rendering_enabled() && (self.scanline <= 239 || self.scanline == 261) {
+            // Calculate pixel to draw
+
+            // memory fetches
+            // TODO: implement garbage nt fetches
+            // TODO: implement dot 0 ?BG lsbit address only?
+            if (self.dot >= 1 && self.dot <= 256) || (self.dot >= 321 && self.dot <= 340) {
+                match self.dot % 8 {
+                    0 => {
+                        self.ms_bg_tile = self.read(
+                            pattern_table_address_decoder(
+                                self.registers.ppu_ctrl.background_pattern_table_addr,
+                                self.tile_index,
+                                1,
+                                (self.v >> 12) as u8,
+                            ),
+                            cart,
+                        );
+
+                        // Feed shift registers
+                        self.ls_shift_register =
+                            (self.ls_shift_register >> 8) | (self.ls_bg_tile as u16) << 8;
+                        self.ms_shift_register =
+                            (self.ms_shift_register >> 8) | (self.ms_bg_tile as u16) << 8;
+                        self.attribute_shift_register = self.attribute
+                            >> ((((self.v & 0b0000_0000_0000_0010) >> 1)
+                                | ((self.v & 0b0000_0000_0100_0000) >> 5))
+                                * 2)
+                    }
+                    1 => (),
+                    2 => self.tile_index = self.read(0x2000 | (self.v & 0x0fff), cart),
+                    3 => (),
+                    4 => {
+                        self.attribute = self.read(
+                            0x23c0
+                                | (self.v & 0b0000_1100_0000_0000)
+                                | ((self.v >> 4) & 0b0011_1000)
+                                | ((self.v >> 2) & 0b0000_0111),
+                            cart,
+                        )
+                    }
+                    5 => (),
+                    6 => {
+                        self.ls_bg_tile = self.read(
+                            pattern_table_address_decoder(
+                                self.registers.ppu_ctrl.background_pattern_table_addr,
+                                self.tile_index,
+                                0,
+                                (self.v >> 12) as u8,
+                            ),
+                            cart,
+                        )
+                    }
+                    7 => (),
+                    _ => unreachable!(),
+                }
+            }
+        }
+
+        if self.rendering_enabled() && (self.scanline <= 239 || self.scanline == 261) {
+            if self.dot % 8 == 0
+                && self.dot != 0
+                && (self.dot <= 256 || self.dot >= 328 && self.dot <= 336)
+            {
+                self.inc_horizontal_v();
+            }
+
+            if self.dot == 256 {
+                self.inc_vertical_v();
+            }
+
+            if self.dot == 257 {
+                self.horizontal_t_to_horizontal_v();
+            }
+        }
+
+        if self.scanline == 261 {
+            if self.dot == 1 {
+                self.registers.ppu_status.vertical_blank.set(false);
+                self.registers.ppu_status.sprite_0_hit = false;
+                self.registers.ppu_status.sprite_overflow = false;
+            }
+
+            if self.rendering_enabled() && self.dot >= 280 && self.dot <= 304 {
+                self.vertical_t_to_vertical_v();
+            }
+        }
+
+        if self.scanline == 241 && self.dot == 1 {
+            self.registers.ppu_status.vertical_blank.set(true);
+        }
+
+        self.inc_dot();
+        self.cycle += 1;
+    }
 
     // TODO: change this register type to something more expressive, maybe an enum
     pub fn register_read(&self, register: u8, cart: &Cartridge) -> u8 {
@@ -145,6 +264,7 @@ impl Ppu {
         match addr {
             0x0000..=0x1fff => cart.chr_read(addr),
             0x2000..=0x3eff => self.vram[((addr - 0x2000) % 0x1000) as usize],
+            // TODO: pallet has mirroring, must implement
             0x3f00..=0x3fff => self.palette[(addr - 0x3f00) as usize],
             _ => unreachable!(),
         }
@@ -157,6 +277,44 @@ impl Ppu {
             0x3f00..=0x3fff => self.palette[(addr - 0x3f00) as usize] = value,
             _ => unreachable!(),
         }
+    }
+
+    fn inc_dot(&mut self) {
+        if self.dot == 340 {
+            self.dot = 0;
+            if self.scanline == 261 {
+                self.scanline = 0;
+                self.frame += 1
+            } else {
+                self.scanline += 1;
+            }
+        } else {
+            self.dot += 1;
+        }
+
+        if self.rendering_enabled() && self.frame % 2 != 0 && self.dot == 0 && self.scanline == 0 {
+            self.dot = 1;
+        }
+    }
+
+    fn inc_horizontal_v(&mut self) {
+        todo!()
+    }
+
+    fn inc_vertical_v(&mut self) {
+        todo!()
+    }
+
+    fn horizontal_t_to_horizontal_v(&mut self) {
+        todo!()
+    }
+
+    fn vertical_t_to_vertical_v(&mut self) {
+        todo!()
+    }
+
+    fn rendering_enabled(&self) -> bool {
+        todo!()
     }
 }
 

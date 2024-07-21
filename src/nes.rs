@@ -21,9 +21,9 @@ impl Nes {
     pub fn run(&mut self) {
         loop {
             self.cpu.cycle(&mut self.bus);
-            self.bus.ppu.cycle(&mut self.bus.cart);
-            self.bus.ppu.cycle(&mut self.bus.cart);
-            self.bus.ppu.cycle(&mut self.bus.cart);
+            self.bus.ppu.cycle(&mut self.bus.cart, &mut self.cpu);
+            self.bus.ppu.cycle(&mut self.bus.cart, &mut self.cpu);
+            self.bus.ppu.cycle(&mut self.bus.cart, &mut self.cpu);
         }
     }
 }
