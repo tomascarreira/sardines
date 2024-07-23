@@ -79,6 +79,7 @@ impl Cpu {
                 6 => {
                     self.pc = (self.pc & 0x00ff) | ((self.read(0xfffb, bus) as u16) << 8);
                     self.instr_state.interrupt_cycle = 0;
+                    self.instr_state.fetch_opcode = true;
                 }
                 _ => unreachable!(),
             }
@@ -620,6 +621,8 @@ impl Cpu {
                     let pcl = (self.pc as u8 as i16) + self.instr_state.saved_byte as i8 as i16;
                     if pcl > 0xff {
                         self.instr_state.page_crossed = true;
+                    } else {
+                        self.instr_state.page_crossed = false;
                     }
                     self.pc = (self.pc & 0xff00) | pcl as u8 as u16;
                 } else {
@@ -627,7 +630,7 @@ impl Cpu {
                     self.instr_state.instr = instr;
                     self.instr_state.addr_mode = addr_mode;
                     self.instr_state.cycle = 1;
-                    self.pc += 1
+                    self.pc += 1;
                 }
             }
             (_, AddrMode::Relative, 4) => {
@@ -644,7 +647,7 @@ impl Cpu {
                     self.instr_state.instr = instr;
                     self.instr_state.addr_mode = addr_mode;
                     self.instr_state.cycle = 1;
-                    self.pc += 1
+                    self.pc += 1;
                 }
             }
             // (_, AddrMode::Relative, 5) => {
