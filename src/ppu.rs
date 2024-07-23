@@ -30,7 +30,10 @@ pub struct Ppu {
     ms_bg_tile: u8,
     ls_shift_register: u16,
     ms_shift_register: u16,
-    attribute_shift_register: u8,
+    ls_attribute_latch: u8,
+    ms_attribute_latch: u8,
+    ls_attribute_shift_register: u8,
+    ms_attribute_shift_register: u8,
 }
 
 impl Ppu {
@@ -56,17 +59,59 @@ impl Ppu {
             ms_bg_tile: 0,
             ls_shift_register: 0,
             ms_shift_register: 0,
-            attribute_shift_register: 0,
+            ls_attribute_latch: 0,
+            ms_attribute_latch: 0,
+            ls_attribute_shift_register: 0,
+            ms_attribute_shift_register: 0,
         }
     }
 
     pub fn cycle(&mut self, cart: &mut Cartridge, cpu: &mut Cpu) {
-        if self.rendering_enabled() && (self.scanline <= 239 || self.scanline == 261) {
-            // Calculate pixel to draw
+        // Calculate pixel to draw
+        // TODO: implement PpuMask left column enabled/disabled
+        if self.rendering_enabled() && (self.scanline <= 239) && self.dot >= 1 && self.dot <= 256 {
+            let mut bg_palette_index = if self.registers.ppu_mask.show_background {
+                let ls_bg = ((self.ls_shift_register >> (7 - self.x)) & 0b0000_0001) as u8;
+                let ms_bg = ((self.ms_shift_register >> (7 - self.x)) & 0b0000_0001) as u8;
+                let ls_attribute_bg = (self.ls_attribute_shift_register >> (7 - self.x)) & 0b0001;
+                let ms_attribute_bg = (self.ms_attribute_shift_register >> (7 - self.x)) & 0b0001;
 
-            // memory fetches
-            // TODO: implement garbage nt fetches
-            // TODO: implement dot 0 ?BG lsbit address only?
+                let bg_palette_index: u8 =
+                    ms_attribute_bg << 3 | ls_attribute_bg << 2 | ms_bg << 1 | ls_bg;
+
+                // shift the shift_registers
+                // TODO: refactor for easier shifts/rotations
+                self.ls_shift_register >>= 1;
+                self.ms_shift_register >>= 1;
+                self.ls_shift_register =
+                    (self.ls_shift_register & 0b0111_1111_1111_1111) | (0x0001 << 15);
+                self.ms_shift_register =
+                    (self.ms_shift_register & 0b0111_1111_1111_1111) | (0x0001 << 15);
+                self.ls_attribute_shift_register >>= 1;
+                self.ms_attribute_shift_register >>= 1;
+                self.ls_attribute_shift_register = (self.ls_attribute_shift_register & 0b0111_1111)
+                    | (self.ls_attribute_latch << 7);
+                self.ms_attribute_shift_register = (self.ms_attribute_shift_register & 0b0111_1111)
+                    | (self.ms_attribute_latch << 7);
+
+                Some(bg_palette_index)
+            } else {
+                None
+            };
+
+            match bg_palette_index {
+                Some(palette_index) => {
+                    let bg_color = self.read(0x3f00 | palette_index as u16, cart);
+                    println!("{}", bg_color);
+                }
+                None => println!("No background"),
+            }
+        }
+
+        // memory fetches
+        // TODO: implement garbage nt fetches
+        // TODO: implement dot 0 ?BG lsbit address only?
+        if self.rendering_enabled() && (self.scanline <= 239 || self.scanline == 261) {
             if (self.dot >= 1 && self.dot <= 256) || (self.dot >= 321 && self.dot <= 340) {
                 match self.dot % 8 {
                     0 => {
@@ -85,10 +130,8 @@ impl Ppu {
                             (self.ls_shift_register >> 8) | (self.ls_bg_tile as u16) << 8;
                         self.ms_shift_register =
                             (self.ms_shift_register >> 8) | (self.ms_bg_tile as u16) << 8;
-                        self.attribute_shift_register = self.attribute
-                            >> ((((self.v & 0b0000_0000_0000_0010) >> 1)
-                                | ((self.v & 0b0000_0000_0100_0000) >> 5))
-                                * 2)
+                        self.ls_attribute_latch = ((self.v & 0b0000_0000_0000_0010) >> 1) as u8;
+                        self.ms_attribute_latch = ((self.v & 0b0000_0000_0100_0000) >> 5) as u8;
                     }
                     1 => (),
                     2 => self.tile_index = self.read(0x2000 | (self.v & 0x0fff), cart),
@@ -314,7 +357,7 @@ impl Ppu {
     }
 
     fn rendering_enabled(&self) -> bool {
-        todo!()
+        self.registers.ppu_mask.show_background || self.registers.ppu_mask.show_sprites
     }
 }
 
@@ -322,7 +365,7 @@ fn pattern_table_address_decoder(pt_half: u8, tile_number: u8, bit_plane: u8, fi
     (fine_y as u16 & 0b0000_0000_0000_0111)
         | (((bit_plane as u16) << 3) & 0b0000_0000_0000_1000)
         | ((tile_number as u16) << 4)
-        | (((pt_half as u16) << 12) & 0b0001_0000_0000_000)
+        | (((pt_half as u16) << 12) & 0b0001_0000_0000_0000)
 }
 
 struct Registers {
