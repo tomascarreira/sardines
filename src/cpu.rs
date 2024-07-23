@@ -12,6 +12,8 @@ pub struct Cpu {
     pc: u16,
     instr_state: InstrState,
     cycle: usize,
+
+    generate_nmi: bool,
 }
 
 impl Cpu {
@@ -31,12 +33,59 @@ impl Cpu {
                 saved_byte: 0,
                 saved_addr: 0,
                 page_crossed: false,
+                interrupt_cycle: 0,
             },
             cycle: 7,
+            generate_nmi: false,
         }
     }
 
     pub fn cycle(&mut self, bus: &mut Bus) {
+        // TODO: implement complicated interrupt behaviors
+        if self.generate_nmi && self.instr_state.fetch_opcode {
+            self.instr_state.fetch_opcode = false;
+            // TODO: instruction register get filled with 0x00. Don't know if is necessary to implement
+            self.dummy_read(bus);
+            self.generate_nmi = false;
+            self.instr_state.interrupt_cycle += 1;
+            return;
+        }
+
+        // TODO: better way of doing this for NMI and IRQ. Maybe using the instr::...
+        if self.instr_state.interrupt_cycle > 0 {
+            match self.instr_state.interrupt_cycle {
+                1 => {
+                    self.dummy_read(bus);
+                    self.instr_state.interrupt_cycle += 1;
+                }
+                2 => {
+                    self.stack_push((self.pc >> 8) as u8, bus);
+                    self.instr_state.interrupt_cycle += 1;
+                }
+                3 => {
+                    self.stack_push(self.pc as u8, bus);
+                    self.instr_state.interrupt_cycle += 1;
+                }
+                4 => {
+                    self.stack_push(self.p.b_flag_unset(), bus);
+                    self.instr_state.interrupt_cycle += 1;
+                }
+                // TODO: Know it only implements for nmi, when irq is implement this needs to change
+                5 => {
+                    self.pc = (self.pc & 0xff00) | (self.read(0xfffa, bus) as u16);
+                    self.p.interrupt_disable = true;
+                    self.instr_state.interrupt_cycle += 1;
+                }
+                6 => {
+                    self.pc = (self.pc & 0x00ff) | ((self.read(0xfffb, bus) as u16) << 8);
+                    self.instr_state.interrupt_cycle = 0;
+                }
+                _ => unreachable!(),
+            }
+
+            return;
+        }
+
         if self.instr_state.fetch_opcode {
             self.instr_state.fetch_opcode = false;
             let opcode = self.fetch_opcode(bus);
@@ -1103,6 +1152,10 @@ impl Cpu {
         self.p.zero = self.a == 0;
         self.p.negative = (self.a as i8) < 0;
     }
+
+    pub fn nmi(&mut self) {
+        self.generate_nmi = true;
+    }
 }
 
 impl Display for Cpu {
@@ -1211,6 +1264,7 @@ struct InstrState {
     saved_byte: u8,
     saved_addr: u16,
     page_crossed: bool,
+    interrupt_cycle: usize,
 }
 
 #[derive(Clone, Copy, Debug)]
