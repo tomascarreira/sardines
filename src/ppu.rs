@@ -69,7 +69,7 @@ impl Ppu {
     pub fn cycle(&mut self, cart: &mut Cartridge, cpu: &mut Cpu) {
         // Calculate pixel to draw
         // TODO: implement PpuMask left column enabled/disabled
-        if self.rendering_enabled() && (self.scanline <= 239) && self.dot >= 1 && self.dot <= 256 {
+        if self.rendering_enabled() && self.scanline <= 239 && self.dot >= 1 && self.dot <= 256 {
             let mut bg_palette_index = if self.registers.ppu_mask.show_background {
                 let ls_bg = ((self.ls_shift_register >> (7 - self.x)) & 0b0000_0001) as u8;
                 let ms_bg = ((self.ms_shift_register >> (7 - self.x)) & 0b0000_0001) as u8;
@@ -253,7 +253,6 @@ impl Ppu {
     pub fn register_write(&mut self, value: u8, register: u8, cart: &mut Cartridge) {
         match register {
             0 => {
-                println!("{value:08b}");
                 self.registers.ppu_ctrl = PpuCtrl::from(value);
                 self.t = (self.t & 0b0111_0011_1111_1111) | ((value as u16 & 0b0000_0011) << 10)
             }
@@ -347,19 +346,39 @@ impl Ppu {
     }
 
     fn inc_horizontal_v(&mut self) {
-        todo!()
+        if (self.v & 0b0000_0000_0001_1111) == 31 {
+            self.v &= 0b1111_1111_1110_0000;
+            self.v ^= 0b0000_0100_0000_0000;
+        } else {
+            self.v = self.v.wrapping_add(1);
+        }
     }
 
     fn inc_vertical_v(&mut self) {
-        todo!()
+        if (self.v & 0b0111_0000_0000_0000) != 0b0111_0000_0000_0000 {
+            self.v = self.v.wrapping_add(0x1000);
+        } else {
+            self.v &= 0b0000_1111_1111_1111;
+            let mut coarse_y = (self.v & 0b0000_0011_1110_0000) >> 5;
+            if coarse_y == 29 {
+                coarse_y = 0;
+                self.v ^= 0b0000_1000_0000_0000;
+            } else if coarse_y == 31 {
+                coarse_y = 0;
+            } else {
+                coarse_y = coarse_y.wrapping_add(1);
+            }
+
+            self.v = (self.v & 0b0111_1100_0001_1111) | (coarse_y << 5)
+        }
     }
 
     fn horizontal_t_to_horizontal_v(&mut self) {
-        todo!()
+        self.v = (self.v & 0b0111_1011_1110_0000) | (self.t & 0b0000_0100_0001_1111);
     }
 
     fn vertical_t_to_vertical_v(&mut self) {
-        todo!()
+        self.v = (self.v & 0b0000_0100_0001_1111) | (self.t & 0b0111_1011_1110_000);
     }
 
     fn rendering_enabled(&self) -> bool {
@@ -427,13 +446,13 @@ impl PpuCtrl {
 impl From<u8> for PpuCtrl {
     fn from(value: u8) -> Self {
         PpuCtrl {
-            base_nametable_addr: value & 0b0000_0011 >> 0,
-            vram_addr_inc: value & 0b0000_0100 >> 2,
-            sprite_pattern_table_addr: value & 0b0000_1000 >> 3,
-            background_pattern_table_addr: value & 0b0001_0000 >> 4,
-            sprite_size: value & 0b0010_0000 >> 5,
-            ppu_master_slave_select: value & 0b0100_0000 >> 6,
-            generate_nmi: bit_to_bool(value & 0b1000_0000 >> 7),
+            base_nametable_addr: (value & 0b0000_0011) >> 0,
+            vram_addr_inc: (value & 0b0000_0100) >> 2,
+            sprite_pattern_table_addr: (value & 0b0000_1000) >> 3,
+            background_pattern_table_addr: (value & 0b0001_0000) >> 4,
+            sprite_size: (value & 0b0010_0000) >> 5,
+            ppu_master_slave_select: (value & 0b0100_0000) >> 6,
+            generate_nmi: bit_to_bool((value & 0b1000_0000) >> 7),
         }
     }
 }
@@ -467,14 +486,14 @@ impl PpuMask {
 impl From<u8> for PpuMask {
     fn from(value: u8) -> Self {
         PpuMask {
-            greyscale: bit_to_bool(value & 0b0000_0001 >> 0),
-            show_background_in_leftmost_8_pixels_of_screen: bit_to_bool(value & 0b0000_0010 >> 1),
-            show_sprites_in_leftmost_8_pixels_of_screen: bit_to_bool(value & 0b0000_0100 >> 2),
-            show_background: bit_to_bool(value & 0b0000_1000 >> 3),
-            show_sprites: bit_to_bool(value & 0b0001_0000 >> 4),
-            emphasize_red: bit_to_bool(value & 0b0010_0000 >> 5),
-            emphasize_green: bit_to_bool(value & 0b0100_0000 >> 6),
-            emphasize_blue: bit_to_bool(value & 0b1000_0000 >> 7),
+            greyscale: bit_to_bool((value & 0b0000_0001) >> 0),
+            show_background_in_leftmost_8_pixels_of_screen: bit_to_bool((value & 0b0000_0010) >> 1),
+            show_sprites_in_leftmost_8_pixels_of_screen: bit_to_bool((value & 0b0000_0100) >> 2),
+            show_background: bit_to_bool((value & 0b0000_1000) >> 3),
+            show_sprites: bit_to_bool((value & 0b0001_0000) >> 4),
+            emphasize_red: bit_to_bool((value & 0b0010_0000) >> 5),
+            emphasize_green: bit_to_bool((value & 0b0100_0000) >> 6),
+            emphasize_blue: bit_to_bool((value & 0b1000_0000) >> 7),
         }
     }
 }
