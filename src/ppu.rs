@@ -194,6 +194,11 @@ impl Ppu {
 
         if self.scanline == 241 && self.dot == 1 {
             self.registers.ppu_status.vertical_blank.set(true);
+            // TODO: improve the accuracy of generation an nmi, use NMI page of the ppu in the nesdev wiki
+            if self.registers.ppu_ctrl.generate_nmi {
+                println!("NMI from ppu");
+                cpu.nmi();
+            }
         }
 
         self.inc_dot();
@@ -230,10 +235,10 @@ impl Ppu {
                 // TODO: Use Cell::update() when it is merged from nightly
                 let mut ppu_addr = self.registers.ppu_addr.get();
                 // TODO: Handle integer wrapping
-                ppu_addr += if self.registers.ppu_ctrl.vram_addr_inc == 0 {
-                    1
+                ppu_addr = if self.registers.ppu_ctrl.vram_addr_inc == 0 {
+                    ppu_addr.wrapping_add(1)
                 } else if self.registers.ppu_ctrl.vram_addr_inc == 1 {
-                    32
+                    ppu_addr.wrapping_add(32)
                 } else {
                     unreachable!()
                 };
@@ -248,6 +253,7 @@ impl Ppu {
     pub fn register_write(&mut self, value: u8, register: u8, cart: &mut Cartridge) {
         match register {
             0 => {
+                println!("{value:08b}");
                 self.registers.ppu_ctrl = PpuCtrl::from(value);
                 self.t = (self.t & 0b0111_0011_1111_1111) | ((value as u16 & 0b0000_0011) << 10)
             }
@@ -257,7 +263,7 @@ impl Ppu {
             4 => {
                 // TODO: behaviour is different when ppu is rendering
                 self.oam[self.registers.oam_adr as usize] = value;
-                self.registers.oam_data += 1;
+                self.registers.oam_data = self.registers.oam_data.wrapping_add(1);
             }
             5 => {
                 if self.w.get() {
@@ -288,10 +294,10 @@ impl Ppu {
                 // TODO: Use Cell::update() when it is merged from nightly
                 let mut ppu_addr = self.registers.ppu_addr.get();
                 // TODO: Handle integer wrapping
-                ppu_addr += if self.registers.ppu_ctrl.vram_addr_inc == 0 {
-                    1
+                ppu_addr = if self.registers.ppu_ctrl.vram_addr_inc == 0 {
+                    ppu_addr.wrapping_add(1)
                 } else if self.registers.ppu_ctrl.vram_addr_inc == 1 {
-                    32
+                    ppu_addr.wrapping_add(32)
                 } else {
                     unreachable!()
                 };
