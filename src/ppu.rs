@@ -70,29 +70,14 @@ impl Ppu {
         // Calculate pixel to draw
         // TODO: implement PpuMask left column enabled/disabled
         if self.rendering_enabled() && self.scanline <= 239 && self.dot >= 1 && self.dot <= 256 {
-            let mut bg_palette_index = if self.registers.ppu_mask.show_background {
-                let ls_bg = ((self.ls_shift_register >> (7 - self.x)) & 0b0000_0001) as u8;
-                let ms_bg = ((self.ms_shift_register >> (7 - self.x)) & 0b0000_0001) as u8;
-                let ls_attribute_bg = (self.ls_attribute_shift_register >> (7 - self.x)) & 0b0001;
-                let ms_attribute_bg = (self.ms_attribute_shift_register >> (7 - self.x)) & 0b0001;
+            let bg_palette_index = if self.registers.ppu_mask.show_background {
+                let ls_bg = ((self.ls_shift_register >> (15 - self.x)) & 0b0000_0001) as u8;
+                let ms_bg = ((self.ms_shift_register >> (15 - self.x)) & 0b0000_0001) as u8;
+                let ls_attribute_bg = (self.ls_attribute_shift_register >> (15 - self.x)) & 0b0001;
+                let ms_attribute_bg = (self.ms_attribute_shift_register >> (15 - self.x)) & 0b0001;
 
                 let bg_palette_index: u8 =
                     ms_attribute_bg << 3 | ls_attribute_bg << 2 | ms_bg << 1 | ls_bg;
-
-                // shift the shift_registers
-                // TODO: refactor for easier shifts/rotations
-                self.ls_shift_register >>= 1;
-                self.ms_shift_register >>= 1;
-                self.ls_shift_register =
-                    (self.ls_shift_register & 0b0111_1111_1111_1111) | (0x0001 << 15);
-                self.ms_shift_register =
-                    (self.ms_shift_register & 0b0111_1111_1111_1111) | (0x0001 << 15);
-                self.ls_attribute_shift_register >>= 1;
-                self.ms_attribute_shift_register >>= 1;
-                self.ls_attribute_shift_register = (self.ls_attribute_shift_register & 0b0111_1111)
-                    | (self.ls_attribute_latch << 7);
-                self.ms_attribute_shift_register = (self.ms_attribute_shift_register & 0b0111_1111)
-                    | (self.ms_attribute_latch << 7);
 
                 Some(bg_palette_index)
             } else {
@@ -130,8 +115,10 @@ impl Ppu {
                             (self.ls_shift_register >> 8) | (self.ls_bg_tile as u16) << 8;
                         self.ms_shift_register =
                             (self.ms_shift_register >> 8) | (self.ms_bg_tile as u16) << 8;
-                        self.ls_attribute_latch = ((self.v & 0b0000_0000_0000_0010) >> 1) as u8;
-                        self.ms_attribute_latch = ((self.v & 0b0000_0000_0100_0000) >> 5) as u8;
+                        let attribute_shift = ((self.v & 0b0000_0000_0000_0010) >> 1)
+                            | ((self.v & 0b0000_0000_0100_0000) >> 5);
+                        self.ls_attribute_latch = self.attribute >> attribute_shift & 0x1;
+                        self.ms_attribute_latch = self.attribute >> attribute_shift & 0x2;
                     }
                     1 => (),
                     2 => self.tile_index = self.read(0x2000 | (self.v & 0x0fff), cart),
@@ -160,6 +147,16 @@ impl Ppu {
                     7 => (),
                     _ => unreachable!(),
                 }
+
+                // shift the shift_registers
+                // TODO: refactor for easier shifts/rotations
+                self.ls_shift_register = (self.ls_shift_register << 1) | 0x0001;
+                self.ms_shift_register = (self.ms_shift_register << 1) | 0x0001;
+
+                self.ls_attribute_shift_register =
+                    (self.ls_attribute_shift_register << 1) | (self.ls_attribute_latch & 0x01);
+                self.ms_attribute_shift_register =
+                    (self.ms_attribute_shift_register << 1) | (self.ms_attribute_latch & 0x01);
             }
         }
 
